@@ -1,9 +1,9 @@
 from pydantic import BaseModel, constr
-
+import typing as t
 
 class URLBase(BaseModel):
     target_url: str
-    custom: constr(strip_whitespace=True, min_length=4, max_length=10) | None = None
+    custom: t.Optional[constr(strip_whitespace=True, min_length=4, max_length=10)] = None
 
 
 class URL(URLBase):
