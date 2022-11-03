@@ -1,9 +1,8 @@
 import random
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 
 from lemonapi import facts, quotes
-from lemonapi.utils.auth import User, get_current_active_user
 
 router = APIRouter()
 
@@ -36,14 +35,14 @@ async def amount(request: Request, count: int = 0):
 
 
 @router.get("/lemon/verbs")
-async def verbs(request: Request, active_user: User = Depends(get_current_active_user)):
+async def verbs(request: Request):
     """
     Endpoint returns random verb about lemons from list
     :param request:
     :return: dict with key message that gives access to the data
     """
-    data = facts.LEMON_VERBS  # {"message": random.choice(facts.LEMON_VERBS)}
-    return {"message": data}
+    data = facts.LEMON_VERBS
+    return {"message": random.choice(facts.LEMON_VERBS)}
 
 
 @router.get("/lemon/nouns")

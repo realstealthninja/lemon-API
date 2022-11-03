@@ -5,6 +5,11 @@ Under development, this file has no usage yet, please don't even try to use it.
 import typing
 
 from aioredis import Redis
+from fastapi import APIRouter, Request
+
+from lemonapi.utils import auth
+
+router = APIRouter()
 
 
 class API:
@@ -14,7 +19,7 @@ class API:
         self.debug = False
         self.redis = Redis(host="redis", port=6379, decode_responses=True)
 
-        self.req = typing.Optional[str]
+        self.req = typing.Optional[str]  # ip address to ban
 
     async def ban_user(self, duration: int = 120):
         """Bans a user from using the API temporaly, by default using 120 seconds."""

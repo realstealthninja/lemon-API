@@ -15,7 +15,6 @@ async def limit(key: str = None, limit: int = 5, ttl: int = 60):
     :return: a dictionary with the following keys: call, ttl
     """
     req = await client.incr(key)
-    print(f"DEBUG: Value: {req}, type {type(req)}")
     if req == 1:
         await client.expire(key, 60)
         ttl = 60

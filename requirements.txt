@@ -9,8 +9,8 @@ asyncpg == 0.25.0
 aioredis == 2.0.0
 websockets == 10.3
 wsproto == 1.1.0
-sqlalchemy==1.4.32
-python-dotenv==0.19.2
-validators==0.18.2
-loguru==0.6.0
+sqlalchemy == 1.4.32
+python-dotenv == 0.19.2
+validators == 0.18.2
+loguru == 0.6.0
 bcrypt == 4.0.0

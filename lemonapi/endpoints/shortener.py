@@ -1,6 +1,8 @@
+from typing import Optional
+
 import validators
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from starlette.datastructures import URL
@@ -67,11 +69,10 @@ def delete_url(secret_key: str, request: Request, db: Session = Depends(get_db))
 URLS = []
 
 
-@router.post("/url", response_model=schemas.URLInfo)
+@router.post("/url/", response_model=schemas.URLInfo)
 def create_url(url: schemas.URLBase, db: Session = Depends(get_db)):
-    # print(type(custom_url), custom_url)
     if not validators.url(url.target_url):
-        raise_bad_request(message="Your provided URL is not valid")
+        raise HTTPException(status_code=400, detail="Your provided URL is not invalid")
     db_url = crud.create_db_url(db=db, url=url)
     URLS.append(f"{get_settings().base_url}/{db_url.key} redirects to {url.target_url}")
     return get_admin_info(db_url)
@@ -82,20 +83,45 @@ def get_urls(request: Request):
     return templates.TemplateResponse("test.html", {"request": request, "urls": URLS})
 
 
-@router.get("/form/")
-def form_post(request: Request):
-    result = "Type an url"
+WOW = []
+
+
+class FormManager:
+    def __init__(self, request: Request):
+        self.request: Request = request
+        self.url: Optional[str] = None
+        self.optional: Optional[str] = None
+
+    async def load(self):
+        form = await self.request.form()
+        self.url = form.get("url")
+
+    def get_url(self):
+        return self.url
+
+
+@router.post("/create/urls")
+async def create_url(request: Request, db: Session = Depends(get_db)):
+    data = FormManager(request)
+    await data.load()
+    if not validators.url(data.get_url()):
+        return Response(
+            status_code=400, content=f"Your provided URL '{data.get_url()}' is invalid"
+        )
+    url = schemas.URLBase(target_url=data.get_url())
+    db_url = crud.create_db_url(db=db, url=url)
+    WOW.append(f"{get_settings().base_url}/{db_url.key} redirects to {url.target_url}")
+    foo = {"request": request, "info": get_admin_info(db_url)}
     return templates.TemplateResponse(
-        "form.html", context={"request": request, "result": result}
+        "test.html", {"request": request, "info": get_admin_info(db_url)}
     )
 
 
-@router.post("/form/")
-def form_post(request: Request, url: str = Form(...)):
-    result = url
+@router.get("/create/urls")
+async def create_url(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
-        "form.html", context={"request": request, "result": result, "url": url}
-    )
+        "foo.html", context={"request": request}
+    )  # don't mind the "info: WOW" part, it's just for testing
 
 
 @router.get(

@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import ARRAY, Boolean, Column, Integer, String
 
 from .database import Base
 
@@ -12,3 +12,15 @@ class URL(Base):
     target_url = Column(String, index=True)
     is_active = Column(Boolean, default=True)
     clicks = Column(Integer, default=0)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    username = Column(String, unique=True, index=True)
+    fullname = Column(String, unique=False, index=True)
+    email = Column(String, unique=True, index=True)
+    hashed_password = Column(String)
+    disabled = Column(Boolean, default=False)
+    urls = Column(ARRAY(String))

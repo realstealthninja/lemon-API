@@ -1,11 +1,13 @@
 from functools import lru_cache
 
+from loguru import logger
 from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
+    port: str = "5001"
     env_name: str = "Local"
-    base_url: str = "http://localhost:8000"
+    base_url: str = f"http://localhost:{port}"
     db_url: str = "sqlite:///./shortener.db"
 
     class Config:
@@ -15,5 +17,5 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings()
-    print(f"Loading settings for: {settings.env_name}")
+    logger.debug(f"Loading settings for: {settings.env_name}")
     return settings

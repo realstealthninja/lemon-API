@@ -1,17 +1,20 @@
 from datetime import timedelta
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from lemonapi.utils.auth import (
+    NewUser,
     Token,
     User,
     authenticate_user,
     create_access_token,
     fake_users_db,
     get_current_active_user,
+    get_password_hash,
 )
-from lemonapi.utils.constants import Server
+from lemonapi.utils.constants import FormsManager, Server
 
 router = APIRouter()
 
@@ -23,7 +26,6 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     :param form_data: Form data containing login credentials
     """
     user = authenticate_user(fake_users_db, form_data.username, form_data.password)
-    print("Log", user)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -42,7 +44,34 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 
-@router.get("users/add", response_model=User, include_in_schema=True)
-async def add_user(request: Request, user: User):
-    fake_users_db[user.username] = user
-    return {"succeeded": "True"}
+@router.post("/users/add/")
+async def add_user(request: Request, user: NewUser = Depends()):
+    """Register a new user, add user to dictionary with username and hashed password"""
+    data = user
+    fake_users_db[data.username] = {
+        "username": data.username,
+        "full_name": data.full_name,
+        "email": data.email,
+        "hashed_password": get_password_hash(data.password),
+        "disabled": False,
+        "ip": list(request.client.host),
+        "ID": str(uuid4),
+        "urls": [],
+    }
+    return data
+
+
+@router.get("/users/test/login/")
+async def test_login(request: Request):
+    return Server.TEMPLATES.TemplateResponse("login.html", {"request": request})
+
+
+@router.post("/users/test/login/")
+async def test_login(request: Request):
+    foo = await request.form()
+    bar = FormsManager(
+        request, a=foo
+    )  # in order to access the data from dictionary, it will be stored in key 'a'
+    return {
+        "message": f"You are logged in with folowing credentials: {bar.get_data()['a']}"
+    }

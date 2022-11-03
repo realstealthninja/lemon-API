@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Union
+from typing import Optional, Union
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -11,7 +11,9 @@ from lemonapi.utils.constants import Server
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # oauth2 security scheme
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="token", description="OAuth security scheme"
+)
 
 
 # storing our fake user here
@@ -24,6 +26,9 @@ fake_users_db = {
         "email": "johndoe@example.com",
         "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
         "disabled": False,
+        "ip": list,
+        "ID": int,
+        "urls": list[str],
     }
 }
 
@@ -46,6 +51,13 @@ class User(BaseModel):
 
 class UserInDB(User):
     hashed_password: str
+
+
+class NewUser(BaseModel):
+    username: str
+    password: str
+    email: Optional[str] = None
+    full_name: Optional[str] = None
 
 
 def verify_password(plain_password, hashed_password):
