@@ -5,9 +5,7 @@ from fastapi.templating import Jinja2Templates
 
 
 class Server:
-    """
-    Server class to handle the server constant variables
-    """
+    """Server class to handle the server constant variables"""
 
     # the 3 constants below are used in authentication file (auth.py)
     SECRET_KEY = config("SECRET_KEY")

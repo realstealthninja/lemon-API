@@ -73,9 +73,7 @@ def get_password_hash(password):
 
 
 def get_user(db, username: str):
-    """
-    Get user from DB
-    """
+    """Get user from DB"""
     if username in db:
         user_dict = db[username]
         return UserInDB(**user_dict)
@@ -91,9 +89,7 @@ def authenticate_user(fake_db, username: str, password: str):
 
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
-    """
-    Creates the access token for the API
-    """
+    """Creates the access token for the API"""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -105,9 +101,7 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
-    """
-    Get the current user
-    """
+    """Get the current user"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -128,9 +122,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)):
-    """
-    Get the currently active user.
-    """
+    """Get the currently active user."""
     if current_user.disabled:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user

@@ -49,7 +49,9 @@ def raise_not_found(request):
 @router.get("/{url_key}")
 def forward_to_target_url(
     url_key: str, request: Request, db: Session = Depends(get_db)
-):
+):  
+    if url_key == "docs":
+        return RedirectResponse("/docs/")
     if db_url := crud.get_db_url_by_key(db=db, url_key=url_key):
         crud.update_db_clicks(db=db, db_url=db_url)
         return RedirectResponse(db_url.target_url)
@@ -111,7 +113,6 @@ async def create_url(request: Request, db: Session = Depends(get_db)):
     url = schemas.URLBase(target_url=data.get_url())
     db_url = crud.create_db_url(db=db, url=url)
     WOW.append(f"{get_settings().base_url}/{db_url.key} redirects to {url.target_url}")
-    foo = {"request": request, "info": get_admin_info(db_url)}
     return templates.TemplateResponse(
         "test.html", {"request": request, "info": get_admin_info(db_url)}
     )

@@ -2,7 +2,9 @@ import random
 
 from fastapi import APIRouter, Request
 
-from lemonapi import facts, quotes
+from lemonapi import facts
+
+from lemonapi import quotes
 
 router = APIRouter()
 
@@ -41,7 +43,6 @@ async def verbs(request: Request):
     :param request:
     :return: dict with key message that gives access to the data
     """
-    data = facts.LEMON_VERBS
     return {"message": random.choice(facts.LEMON_VERBS)}
 
 

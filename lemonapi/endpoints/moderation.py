@@ -5,9 +5,7 @@ Under development, this file has no usage yet, please don't even try to use it.
 import typing
 
 from aioredis import Redis
-from fastapi import APIRouter, Request
-
-from lemonapi.utils import auth
+from fastapi import APIRouter
 
 router = APIRouter()
 
@@ -36,6 +34,5 @@ class API:
         redis database.
         :return: boolean.
         """
-
         exists = await self.redis.exists(key)
         return exists

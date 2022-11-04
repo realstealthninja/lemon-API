@@ -78,12 +78,6 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
-@app.get("/docs", include_in_schema=False)
-async def get_docs(request: Request):
-    """Generate documentation for API instead of the default one"""
-    name = "docs.html"
-    return Server.TEMPLATES.TemplateResponse(name, {"request": request}, 200)
-
 
 @app.exception_handler(StarletteHTTPException)
 async def my_exception_handler(request: Request, exception: StarletteHTTPException):
@@ -97,9 +91,7 @@ async def my_exception_handler(request: Request, exception: StarletteHTTPExcepti
 
 @app.on_event("startup")
 async def startup() -> None:
-    """
-    Startup event for the server.
-    """
+    """Startup event for the server."""
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
     logger.info(f"Local network: http://{local_ip}:5001")
@@ -107,15 +99,20 @@ async def startup() -> None:
     logger.info(f"Server started at: {datetime.datetime.now()}")
     # create connection to postgres DB server and create required tables if they don't exist
 
+@app.get("/docs/", include_in_schema=False)
+async def get_docs(request: Request):
+    """Generate documentation for API instead of the default one"""
+    name = "docs.html"
+    return Server.TEMPLATES.TemplateResponse(name, {"request": request}, 200)
 
 @app.get("/")
 async def home(request: Request):
     """
-    Endpoint to forward requests to documentation instead of home page that has nothing in it
+    Endpoint to forward requests to documentation instead of home page that has nothing in it.
     :param request:
     :return: RedirectResponse
     """
-    return RedirectResponse("/docs")
+    return RedirectResponse("/docs/")
 
 
 if __name__ == "__main__":
