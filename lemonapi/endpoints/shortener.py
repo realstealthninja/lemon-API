@@ -9,21 +9,14 @@ from starlette.datastructures import URL
 
 from lemonapi.utils import crud, models, schemas
 from lemonapi.utils.config import get_settings
-from lemonapi.utils.database import SessionLocal, engine
+from lemonapi.utils.database import engine
+from lemonapi.utils.constants import get_db
 
 router = APIRouter()
 
 models.Base.metadata.create_all(bind=engine)
 
 templates = Jinja2Templates(directory="lemonapi/templates")
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 def get_admin_info(db_url: models.URL) -> schemas.URLInfo:
@@ -49,7 +42,7 @@ def raise_not_found(request):
 @router.get("/{url_key}")
 def forward_to_target_url(
     url_key: str, request: Request, db: Session = Depends(get_db)
-):  
+):
     if url_key == "docs":
         return RedirectResponse("/docs/")
     if db_url := crud.get_db_url_by_key(db=db, url_key=url_key):

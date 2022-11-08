@@ -28,7 +28,10 @@ async def limit(key: str = None, limit: int = 5, ttl: int = 60):
 
 def limiter(*, max_calls: int = 5, ttl: int = 60):
     """
+    NOTE: This decorator requires the decorated function to have fastAPI Request in the parameters.
+    
     Decorator to limit the amount of calls to a specific endpoint.
+    Limitation is based on IP address.
     :param max_calls: the maximum amount of calls allowed during ttl
     :param ttl: the time to live of the calls
     :return: HTTPException OR the function

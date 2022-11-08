@@ -19,8 +19,8 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     username = Column(String, unique=True, index=True)
-    fullname = Column(String, unique=False, index=True)
+    fullname = Column(String, index=True)
     email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    hashed_password = Column(String, unique=True, index=True)
     disabled = Column(Boolean, default=False)
     urls = Column(ARRAY(String))

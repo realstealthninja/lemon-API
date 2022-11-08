@@ -4,6 +4,9 @@ from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
 
+from lemonapi.utils.database import SessionLocal
+
+
 class Server:
     """Server class to handle the server constant variables"""
 
@@ -38,6 +41,14 @@ class FormsManager:
     def get_keys(self):
         """Returns the keys of the forms data. Keys are basically the kwargs."""
         return self.__dict__.keys()
+
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 class Analysis:

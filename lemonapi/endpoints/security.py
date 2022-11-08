@@ -1,6 +1,8 @@
 from datetime import timedelta
 from uuid import uuid4
 
+from sqlalchemy.orm import Session
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -14,18 +16,25 @@ from lemonapi.utils.auth import (
     get_current_active_user,
     get_password_hash,
 )
-from lemonapi.utils.constants import FormsManager, Server
+from lemonapi.utils import crud
+from lemonapi.utils.decorators import limiter
+from lemonapi.utils.constants import FormsManager, Server, get_db
 
 router = APIRouter()
 
 
 @router.post("/token", response_model=Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+@limiter(max_calls=1, ttl=60)
+async def login_for_access_token(
+    request: Request,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
     """
     Endpoint to authenticate a user and get access token.
     :param form_data: Form data containing login credentials
     """
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    user = authenticate_user(form_data.username, form_data.password, db=db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -45,20 +54,12 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 
 
 @router.post("/users/add/")
-async def add_user(request: Request, user: NewUser = Depends()):
+async def add_user(
+    request: Request, user: NewUser = Depends(), db: Session = Depends(get_db)
+):
     """Register a new user, add user to dictionary with username and hashed password"""
-    data = user
-    fake_users_db[data.username] = {
-        "username": data.username,
-        "full_name": data.full_name,
-        "email": data.email,
-        "hashed_password": get_password_hash(data.password),
-        "disabled": False,
-        "ip": list(request.client.host),
-        "ID": str(uuid4),
-        "urls": [],
-    }
-    return data
+    db_user = crud.add_user(db, user)
+    return db_user
 
 
 @router.get("/users/test/login/")

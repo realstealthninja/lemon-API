@@ -59,7 +59,7 @@ origins = [
 )"""
 
 
-@app.middleware("http")
+"""@app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     # doing bunch of logging for later, will be used for analytics
     # once I figure out how.
@@ -75,8 +75,7 @@ async def add_process_time_header(request: Request, call_next):
     logger.debug(f"Request headers: {request.headers}")
 
     response = await call_next(request)
-    return response
-
+    return response"""
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -99,13 +98,15 @@ async def startup() -> None:
     logger.info(f"Server started at: {datetime.datetime.now()}")
     # create connection to postgres DB server and create required tables if they don't exist
 
+
 @app.get("/docs/", include_in_schema=False)
 async def get_docs(request: Request):
     """Generate documentation for API instead of the default one"""
     name = "docs.html"
     return Server.TEMPLATES.TemplateResponse(name, {"request": request}, 200)
 
-@app.get("/")
+
+@app.get("/", include_in_schema=False)
 async def home(request: Request):
     """
     Endpoint to forward requests to documentation instead of home page that has nothing in it.
