@@ -9,6 +9,7 @@ requester.py
 testing
 test.txt
 shortener.db
+testing.py
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

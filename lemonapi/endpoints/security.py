@@ -12,9 +12,7 @@ from lemonapi.utils.auth import (
     User,
     authenticate_user,
     create_access_token,
-    fake_users_db,
     get_current_active_user,
-    get_password_hash,
 )
 from lemonapi.utils import crud
 from lemonapi.utils.decorators import limiter

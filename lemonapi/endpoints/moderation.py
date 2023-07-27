@@ -11,7 +11,10 @@ router = APIRouter()
 
 
 class API:
-    """A helper class for interacting with redis and moderating users"""
+    """
+    A helper class for interacting with redis and moderating users.
+    This does NOT work yet, it's under development.
+    """
 
     def __init__(self):
         self.debug = False
@@ -36,3 +39,43 @@ class API:
         """
         exists = await self.redis.exists(key)
         return exists
+
+
+banned = {}
+
+
+@router.get("/ban/{ip}")
+async def ban_user(ip: str):
+    """Ban a user from using the API."""
+    if ip not in banned:
+        banned[ip] = True
+        return {"message": f"User with IP {ip} banned."}
+
+
+@router.get("/unban/{ip}")
+async def unban_user(ip: str):
+    """Unban a user from using the API."""
+    if ip in banned:
+        banned[ip] = False
+        return {"message": f"User with IP {ip} unbanned."}
+    else:
+        return {"message": "IP not found"}
+
+
+@router.get("/check/{ip}")
+async def check_user(ip: str):
+    """Check if a user is banned or not."""
+    return {"message": banned.get(ip, False)}
+
+
+@router.get("/list")
+async def list_banned():
+    """List all banned users."""
+    return banned
+
+
+@router.get("/clear")
+async def clear_banned():
+    """Clear all banned users."""
+    banned.clear()
+    return {"message": "Cleared."}

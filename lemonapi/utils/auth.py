@@ -16,7 +16,9 @@ from lemonapi.utils import models
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # oauth2 security scheme
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="token", description="OAuth security scheme"
+    tokenUrl="token",
+    description="OAuth security scheme",
+    scopes={"me": "Read information about the current user.", "items": "Read items."},
 )
 
 
@@ -44,6 +46,7 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: Union[str, None] = None
+    scopes: list[str] = []
 
 
 class User(BaseModel):
@@ -119,9 +122,12 @@ async def get_current_user(
     try:
         payload = jwt.decode(token, Server.SECRET_KEY, algorithms=[Server.ALGORITHM])
         username: str = payload.get("sub")
+        scope: str = payload.get("scope")
         if username is None:
             raise credentials_exception
-        token_data = TokenData(username=username)
+        token_data = TokenData(username=username, scopes=scope)
+        print(f"Token data: {token_data}")
+        logger.info(f"Token data: {token_data}")
     except JWTError:
         logger.error("JWT Error, invalid token")
         raise credentials_exception

@@ -45,7 +45,7 @@ def update_db_clicks(db: Session, db_url: schemas.URL) -> models.URL:
     return db_url
 
 
-def add_user(db: Session, user: auth.NewUser):
+def add_user(db: Session, user: auth.NewUser) -> models.User:
     db_user = models.User(
         username=user.username,
         hashed_password=auth.get_password_hash(user.password),

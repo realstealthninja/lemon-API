@@ -1,6 +1,6 @@
 import typing as t
 
-from pydantic import BaseModel, constr
+from pydantic import BaseModel
 
 
 class URLBase(BaseModel):
