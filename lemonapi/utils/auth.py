@@ -22,30 +22,13 @@ oauth2_scheme = OAuth2PasswordBearer(
 )
 
 
-# storing our fake user here
-# Username: johndoe
-# Password: secret
-fake_users_db = {
-    "johndoe": {
-        "username": "johndoe",
-        "full_name": "John Doe",
-        "email": "johndoe@example.com",
-        "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
-        "disabled": False,
-        "ip": list,
-        "ID": int,
-        "urls": list[str],
-    }
-}
-
-
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 
 class TokenData(BaseModel):
-    username: Union[str, None] = None
+    username: str
     scopes: list[str] = []
 
 
@@ -68,7 +51,7 @@ class NewUser(BaseModel):
 
 
 def verify_password(plain_password, hashed_password):
-    """Verify the password"""
+    """Verify the password."""
     return pwd_context.verify(plain_password, hashed_password)
 
 
@@ -81,14 +64,14 @@ def get_password_hash(password):
 
 
 def get_user(username: str, password: str, db: Session = Depends(get_db)):
-    """Get user from DB"""
+    """Get user from database."""
     db_user = db.query(models.User).filter(models.User.username == username).first()
     if db_user:
         return UserInDB(**db_user.__dict__)
 
 
 def authenticate_user(username: str, password: str, db: Session = Depends(get_db)):
-    """Authenticates the user"""
+    """Authenticates the user."""
     user = get_user(username, password, db)
     if not user:
         return False
@@ -98,7 +81,7 @@ def authenticate_user(username: str, password: str, db: Session = Depends(get_db
 
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
-    """Creates the access token for the API"""
+    """Creates the access token for the API."""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -112,7 +95,7 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
 async def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
-    """Get the current user"""
+    """Get the current user."""
     print("Getting current user...")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

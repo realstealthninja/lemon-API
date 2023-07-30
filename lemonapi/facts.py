@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """
 Copyright (c) 2021 Leon Sandøy
 

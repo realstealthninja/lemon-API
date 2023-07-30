@@ -65,7 +65,7 @@ URLS = []
 
 
 @router.post("/url/", response_model=schemas.URLInfo)
-def create_url(url: schemas.URLBase, db: Session = Depends(get_db)):
+def post_url(url: schemas.URLBase, db: Session = Depends(get_db)):
     if not validators.url(url.target_url):
         raise HTTPException(status_code=400, detail="Your provided URL is not invalid")
     db_url = crud.create_db_url(db=db, url=url)
@@ -112,7 +112,7 @@ async def create_url(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/create/urls")
-async def create_url(request: Request, db: Session = Depends(get_db)):
+async def test_create_url(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         "foo.html", context={"request": request}
     )  # don't mind the "info: WOW" part, it's just for testing

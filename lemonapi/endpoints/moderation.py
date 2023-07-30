@@ -23,7 +23,7 @@ class API:
         self.req = typing.Optional[str]  # ip address to ban
 
     async def ban_user(self, duration: int = 120):
-        """Bans a user from using the API temporaly, by default using 120 seconds."""
+        """Bans a user from using the API temporally, by default using 120 seconds."""
         self.redis.set(self.req, "banned", duration)
 
     async def unban_user(self):
@@ -44,7 +44,7 @@ class API:
 banned = {}
 
 
-@router.get("/ban/{ip}")
+@router.post("/ban/{ip}")
 async def ban_user(ip: str):
     """Ban a user from using the API."""
     if ip not in banned:
@@ -52,7 +52,7 @@ async def ban_user(ip: str):
         return {"message": f"User with IP {ip} banned."}
 
 
-@router.get("/unban/{ip}")
+@router.delete("/unban/{ip}")
 async def unban_user(ip: str):
     """Unban a user from using the API."""
     if ip in banned:

@@ -3,7 +3,7 @@ Small part of larger API. Gives random fact related to lemons. The larger API is
 
 ## Usage
 **This project is built to run in docker, basically only because of PostgreSQL**
-You may connect to your own PostgeSQL host by modifying `./lemonapi/utils/config.py` ``Server`` class. 
+You may connect to your own postgresql host by modifying `./lemonapi/utils/config.py` ``Server`` class.
 
 ## Credentials
 There are no default testing credentials, you must create user yourself. It is done easily in the `/docs/` endpoint, security section --> `add_user`.
@@ -12,7 +12,7 @@ There are no default testing credentials, you must create user yourself. It is d
 Project has `Dockerfile` and `docker-compose.yml` pre made.
 1) clone repo
 2) in terminal type `docker compose up --build` to run and build or `docker compose build` to only build image
-3) API should be running 
+3) API should be running
 
 ### Using the API
 
@@ -28,13 +28,13 @@ data = {"username": "exampleusername", "password": "coolpassword"}  # example da
 
 resp = session.post(
     "http://localhost:5001/token", data=data
-)  # requst to the server to get token
+)  # request to the server to get token
 
 token = resp.json()["access_token"]  # get the token from the response
-print("access token", token)  # printing the access token 
-``` 
+print("access token", token)  # printing the access token
+```
 ### Using the API token
-Using the variable `token` from exaple above. The endpoint `/lemon/verbs` uses OAuth2, so you must pass an Authorization token.
+Using the variable `token` from example above. The endpoint `/lemon/verbs` uses OAuth2, so you must pass an Authorization token.
 ```py
 import requests
 

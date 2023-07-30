@@ -8,7 +8,7 @@ from fastapi.responses import RedirectResponse, Response, FileResponse
 from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from lemonapi.endpoints import lemons, security, shortener, testing, moderation
+from lemonapi.endpoints import lemons, security, shortener, moderation  # , testing
 from lemonapi.utils.auth import get_current_active_user
 from lemonapi.utils.constants import Server
 
@@ -44,7 +44,7 @@ app.include_router(
     lemons.router, tags=["lemons"], dependencies=[Depends(get_current_active_user)]
 )
 app.include_router(shortener.router, tags=["shortener"])
-app.include_router(testing.router, tags=["testing"], include_in_schema=True)
+# app.include_router(testing.router, tags=["testing"], include_in_schema=True)
 
 
 # used for frontend, has no purpose yet here.
@@ -66,7 +66,8 @@ origins = [
 async def add_process_time_header(request: Request, call_next):
     # doing bunch of logging for later, will be used for analytics
     # once I figure out how.
-    """logger.debug(f"Request method: {request.method}")
+    """
+    logger.debug(f"Request method: {request.method}")
     logger.debug(f"Request url: {request.url}")
     logger.debug(f"Request base: {request.base_url}")
     logger.debug(f"Request client: {request.client}")
@@ -75,15 +76,17 @@ async def add_process_time_header(request: Request, call_next):
     logger.debug(f"Request path param: {request.path_params}")
     logger.debug(f"Request cookies: {request.cookies}")
 
-    logger.debug(f"Request headers: {request.headers}")"""
+    logger.debug(f"Request headers: {request.headers}")
+    """
     # logger.debug(f"Request client host: {request.client.host}")
     """print(moderation.banned)
     print(request.client.host in moderation.banned)
-    print(str(request.client.host) in moderation.banned)"""
+    print(str(request.client.host) in moderation.banned)
+    """
     # simple IP ban check, if IP is banned then return 403
     if (
         str(request.client.host) in moderation.banned
-        and moderation.banned[str(request.client.host)] == True
+        and moderation.banned[str(request.client.host)] is True
     ):
         return Response(
             content="You are banned from this server.",
@@ -121,21 +124,21 @@ async def startup() -> None:
 
 @app.get("/docs/", include_in_schema=False)
 async def get_docs(request: Request):
-    """Generate documentation for API instead of using the default documentation"""
+    """Generate documentation for API instead of using the default documentation."""
     name = "docs.html"
     return Server.TEMPLATES.TemplateResponse(name, {"request": request}, 200)
 
 
 @app.get("/favicon.ico", response_class=FileResponse, include_in_schema=False)
 async def get_favicon(request: Request):
-    """This is the favicon.ico file that is returned from the server"""
+    """This is the favicon.ico file that is returned from the server."""
     return favicon_path
 
 
 @app.get("/", include_in_schema=False)
 async def home(request: Request):
     """
-    Endpoint to forward requests to documentation instead of home page that has nothing in it.
+    Endpoint to forward requests to documentation instead of empty home page.
     :param request:
     :return: RedirectResponse
     """

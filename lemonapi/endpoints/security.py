@@ -1,5 +1,4 @@
 from datetime import timedelta
-from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
@@ -55,7 +54,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 async def add_user(
     request: Request, user: NewUser = Depends(), db: Session = Depends(get_db)
 ):
-    """Register a new user, add user to dictionary with username and hashed password"""
+    """Register a new user, add user to dictionary with username and hashed password."""
     db_user = crud.add_user(db, user)
     return db_user
 
@@ -66,11 +65,9 @@ async def test_login(request: Request):
 
 
 @router.post("/users/test/login/")
-async def test_login(request: Request):
+async def post_test_login(request: Request):
     foo = await request.form()
     bar = FormsManager(
         request, a=foo
     )  # in order to access the data from dictionary, it will be stored in key 'a'
-    return {
-        "message": f"You are logged in with folowing credentials: {bar.get_data()['a']}"
-    }
+    return {"message": f"You are logged in with credentials: {bar.get_data()['a']}"}

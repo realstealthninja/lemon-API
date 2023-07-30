@@ -2,13 +2,13 @@ import asyncpg
 from decouple import config
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
-
+from typing import Dict
 
 from lemonapi.utils.database import SessionLocal
 
 
 class Server:
-    """Server class to handle the server constant variables"""
+    """Server class to handle the server constant variables."""
 
     # the 3 constants below are used in authentication file (auth.py)
     SECRET_KEY = config("SECRET_KEY")
@@ -24,18 +24,18 @@ class Server:
 
 
 class FormsManager:
-    """Handling forms data from request"""
+    """Handling forms data from request."""
 
     def __init__(self, request: Request, **kwargs):
         self.__dict__.update(kwargs)
         self.request = request
 
     def get_data(self):
-        """Returns the data of the form as a dictionary"""
+        """Returns the data of the form as a dictionary."""
         return self.__dict__
 
     def find_data(self, key: str):
-        """Returns the value of given key from the forms data"""
+        """Returns the value of given key from the forms data."""
         return self.__dict__[key] if key in self.__dict__ else None
 
     def get_keys(self):
@@ -52,20 +52,20 @@ def get_db():
 
 
 class Analysis:
-    """Handling analysis data from request"""
+    """Handling analysis data from request."""
 
     def __init__(self, request: Request):
         self.request = request
-        self.data = {}
+        self.data: Dict[str, str] = {}
 
     def get_request_origin(self):
-        """Returns the origin of the request"""
+        """Returns the origin of the request."""
         return self.request.client.host
 
     def get_request_user_agent(self):
-        """Returns the user agent of the request"""
+        """Returns the user agent of the request."""
         return self.request.headers["user-agent"]
 
     def unique_visitors(self):
-        """Get the amount of unique visitors to the web server"""
+        """Get the amount of unique visitors to the web server."""
         raise NotImplementedError
