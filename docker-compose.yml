@@ -22,7 +22,7 @@ services:
       - "6379:6379"
 
   postgres:
-    image: postgres:12-alpine
+    image: postgres:15-alpine
     restart: always
     container_name: api-postgres
     environment:
