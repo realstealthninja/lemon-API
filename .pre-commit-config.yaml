@@ -6,8 +6,6 @@ repos:
       - id: check-executables-have-shebangs
       - id: check-toml
       - id: check-yaml
-      - id: end-of-file-fixer
-        types: [python]
       - id: trailing-whitespace
       - id: requirements-txt-fixer
 
