@@ -39,7 +39,7 @@ def raise_not_found(request):
     raise HTTPException(status_code=404, detail=message)
 
 
-@router.get("/{url_key}")
+@router.get("/{url_key}", include_in_schema=False)
 def forward_to_target_url(
     url_key: str, request: Request, db: Session = Depends(get_db)
 ):
@@ -65,7 +65,7 @@ URLS = []
 
 
 @router.post("/url/", response_model=schemas.URLInfo)
-def post_url(url: schemas.URLBase, db: Session = Depends(get_db)):
+def create_url(url: schemas.URLBase, db: Session = Depends(get_db)):
     if not validators.url(url.target_url):
         raise HTTPException(status_code=400, detail="Your provided URL is not invalid")
     db_url = crud.create_db_url(db=db, url=url)
@@ -96,7 +96,7 @@ class FormManager:
 
 
 @router.post("/create/urls")
-async def create_url(request: Request, db: Session = Depends(get_db)):
+async def form_create_url(request: Request, db: Session = Depends(get_db)):
     data = FormManager(request)
     await data.load()
     if not validators.url(data.get_url()):

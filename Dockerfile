@@ -4,4 +4,4 @@ COPY requirements.txt requirements.txt
 RUN /usr/local/bin/python -m pip install --upgrade pip && pip install --no-cache-dir --upgrade -r requirements.txt
 EXPOSE 5001
 COPY . .
-CMD ["python3", "-m", "lemonapi"]
+CMD ["uvicorn", "lemonapi.main:app", "--host=0.0.0.0", "--port=5001", "--log-level=info"]

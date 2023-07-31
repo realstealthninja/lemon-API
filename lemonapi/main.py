@@ -1,7 +1,6 @@
 import datetime
 import socket
 
-import uvicorn
 from decouple import config
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import RedirectResponse, Response, FileResponse
@@ -143,13 +142,3 @@ async def home(request: Request):
     :return: RedirectResponse
     """
     return RedirectResponse("/docs/")
-
-
-if __name__ == "__main__":
-    uvicorn.run(
-        "lemonapi.__main__:app",
-        host="0.0.0.0",
-        port=5001,
-        log_level="info",
-        reload=True,  # True for testing
-    )
