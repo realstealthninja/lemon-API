@@ -70,4 +70,5 @@ async def post_test_login(request: Request):
     bar = FormsManager(
         request, a=foo
     )  # in order to access the data from dictionary, it will be stored in key 'a'
+    # please note, this is a testing endpoint and is not meant to be used in production.
     return {"message": f"You are logged in with credentials: {bar.get_data()['a']}"}

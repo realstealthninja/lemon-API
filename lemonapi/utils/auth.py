@@ -96,7 +96,6 @@ async def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
     """Get the current user."""
-    print("Getting current user...")
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -109,7 +108,6 @@ async def get_current_user(
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username, scopes=scope)
-        print(f"Token data: {token_data}")
         logger.info(f"Token data: {token_data}")
     except JWTError:
         logger.error("JWT Error, invalid token")

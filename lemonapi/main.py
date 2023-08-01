@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse, Response, FileResponse
 from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from lemonapi.endpoints import lemons, security, shortener, moderation  # , testing
+from lemonapi.endpoints import lemons, security, shortener, moderation
 from lemonapi.utils.auth import get_current_active_user
 from lemonapi.utils.constants import Server
 
@@ -43,46 +43,12 @@ app.include_router(
     lemons.router, tags=["lemons"], dependencies=[Depends(get_current_active_user)]
 )
 app.include_router(shortener.router, tags=["shortener"])
-# app.include_router(testing.router, tags=["testing"], include_in_schema=True)
-
-
-# used for frontend, has no purpose yet here.
-origins = [
-    "http://127.0.0.1:5001",  # example origin
-    "http://localhost:5001",  # example origin
-]
-
-"""app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)"""
 
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
-    # doing bunch of logging for later, will be used for analytics
-    # once I figure out how.
-    """
-    logger.debug(f"Request method: {request.method}")
-    logger.debug(f"Request url: {request.url}")
-    logger.debug(f"Request base: {request.base_url}")
-    logger.debug(f"Request client: {request.client}")
-    logger.debug(f"Request client host: {request.client.host}")
-    logger.debug(f"Request query: {request.query_params}")
-    logger.debug(f"Request path param: {request.path_params}")
-    logger.debug(f"Request cookies: {request.cookies}")
-
-    logger.debug(f"Request headers: {request.headers}")
-    """
-    # logger.debug(f"Request client host: {request.client.host}")
-    """print(moderation.banned)
-    print(request.client.host in moderation.banned)
-    print(str(request.client.host) in moderation.banned)
-    """
-    # simple IP ban check, if IP is banned then return 403
+    # simple IP ban check, if IP is banned then return 403.
+    # This feature is not yet implemented properly.
     if (
         str(request.client.host) in moderation.banned
         and moderation.banned[str(request.client.host)] is True
@@ -116,8 +82,8 @@ async def startup() -> None:
     """Startup event for the server."""
     hostname = socket.gethostname()
     local_ip = socket.gethostbyname(hostname)
-    logger.info(f"Local network: http://{local_ip}:5001")
 
+    logger.info(f"Local network: http://{local_ip}:5001")
     logger.info(f"Server started at: {datetime.datetime.now()}")
 
 
