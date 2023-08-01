@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 QUOTES = [
     {
         "author": "Abraham Lincoln",

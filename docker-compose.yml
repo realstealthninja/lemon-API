@@ -8,18 +8,24 @@ services:
       - .:/lemonapi:ro
     tty: true
     depends_on:
-      - redis
       - postgres
+      - redis
+    container_name: lemonapi-web
 
     ports:
       - "127.0.0.1:5001:5001"
 
   redis:
-    image: "redis:latest"  
+    image: redis:alpine
+    container_name: api-redis
+    ports:
+      - "6379:6379"
 
   postgres:
-    image: postgres:12-alpine
+    image: postgres:15-alpine
+    restart: always
+    container_name: api-postgres
     environment:
-      POSTGRES_DB: api
-      POSTGRES_PASSWORD: lemonapi
-      POSTGRES_USER: apiuser
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USER}

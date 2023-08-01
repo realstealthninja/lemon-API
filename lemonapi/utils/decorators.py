@@ -6,8 +6,8 @@ from fastapi import HTTPException
 client = Redis(host="redis")
 
 
-async def limit(key: str = None, limit: int = 5, ttl: int = 60):
-    """
+async def limit(key: str, limit: int = 5, ttl: int = 60) -> dict:
+    """Basic rate limiter for endpoints.
     Used to limit the amount of calls to endpoints.
     :param key: the key to use to store the calls
     :param limit: the maximum amount of calls allowed during ttl
@@ -15,7 +15,6 @@ async def limit(key: str = None, limit: int = 5, ttl: int = 60):
     :return: a dictionary with the following keys: call, ttl
     """
     req = await client.incr(key)
-    print(f"DEBUG: Value: {req}, type {type(req)}")
     if req == 1:
         await client.expire(key, 60)
         ttl = 60
@@ -29,9 +28,23 @@ async def limit(key: str = None, limit: int = 5, ttl: int = 60):
 
 def limiter(*, max_calls: int = 5, ttl: int = 60):
     """
+    NOTE: This decorator requires the decorated function to have
+    fastAPI Request in the parameters.
+    sample usage:
+    >>> from fastapi import FastAPI, Request
+    >>> app = FastAPI()
+    >>>
+    >>> @app.get("/hello/") # app is a fastAPI object
+    >>> @limiter(max_calls=5, ttl=60) # Max amount of calls is 5 per minute
+    >>> async def my_endpoint(request: Request): # request is a fastAPI Request object
+    >>>     return {"message": "Hello World!"}
+
+    In the example above the order of decorators is important.
+
     Decorator to limit the amount of calls to a specific endpoint.
+    Limitation is based on IP address.
     :param max_calls: the maximum amount of calls allowed during ttl
-    :param ttl: the time to live of the calls
+    :param ttl: the time to live of the calls in seconds
     :return: HTTPException OR the function
     """
 
@@ -45,7 +58,8 @@ def limiter(*, max_calls: int = 5, ttl: int = 60):
             else:
                 raise HTTPException(
                     status_code=429,
-                    detail=f"Ratelimited, too many requests. Try again in {res['ttl']} seconds.",
+                    detail=f"""Ratelimited, too many requests. Try again in
+                    {res['ttl']} seconds.""",
                     headers={"Retry-After": res["ttl"]},
                 )
 

@@ -1,9 +1,10 @@
 import random
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 
-from lemonapi import facts, quotes
-from lemonapi.utils.auth import User, get_current_active_user
+from lemonapi import facts
+
+from lemonapi import quotes
 
 router = APIRouter()
 
@@ -15,7 +16,7 @@ async def random_fact(request: Request):
     :param request:
     :return: dict with key message that gives access to the data
     """
-    data = random.choice(facts.LEMON_FACTS)  # jsonable_encoder
+    data = random.choice(facts.LEMON_FACTS)
     return {"message": data}
 
 
@@ -36,22 +37,23 @@ async def amount(request: Request, count: int = 0):
 
 
 @router.get("/lemon/verbs")
-async def verbs(request: Request, active_user: User = Depends(get_current_active_user)):
+async def verbs(request: Request):
     """
     Endpoint returns random verb about lemons from list
     :param request:
     :return: dict with key message that gives access to the data
     """
-    data = facts.LEMON_VERBS  # {"message": random.choice(facts.LEMON_VERBS)}
-    return {"message": data}
+    return {"message": random.choice(facts.LEMON_VERBS)}
 
 
 @router.get("/lemon/nouns")
 async def nouns(request: Request):
     """
-    Endpoint returns random noun about lemons from list
-    :param request:
-    :return: dict with key message that gives access to the data
+    Endpoint returns random noun about lemons from list:
+
+    - **param:** request:
+    - **param:** dict with key message that gives access to the data
+    - test: param format
     """
     return {"message": random.choice(facts.LEMON_NOUNS)}
 
@@ -61,8 +63,9 @@ async def quote(request: Request) -> dict:
     """
     Endpoint returns random quote with author, you can access that quote
     with key "message".
-    :param request:
-    :return: dict with message key that gives access to dict with random
+
+    - param: request
+    - return: dict with message key that gives access to dict with random
     quote & author.
     """
     pick = random.choice(quotes.QUOTES)

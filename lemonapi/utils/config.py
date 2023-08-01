@@ -1,12 +1,16 @@
 from functools import lru_cache
 
+from loguru import logger
 from pydantic import BaseSettings
+from decouple import config
 
 
 class Settings(BaseSettings):
+    port: str = "5001"
     env_name: str = "Local"
-    base_url: str = "http://localhost:8000"
-    db_url: str = "sqlite:///./shortener.db"
+    base_url: str = f"http://localhost:{port}"
+    sqlite_url: str = "sqlite:///./shortener.db"
+    postgres_url: str = f"postgresql+psycopg2://{config('DB_USER')}:{config('DB_PASSWORD')}@postgres:{config('DB_PORT')}/{config('DB_NAME')}"
 
     class Config:
         env_file = ".env"
@@ -15,5 +19,5 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     settings = Settings()
-    print(f"Loading settings for: {settings.env_name}")
+    logger.debug(f"Loading settings for: {settings.env_name}")
     return settings

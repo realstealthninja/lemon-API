@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from . import keygen, models, schemas
+from . import keygen, models, schemas, auth
 
 
 def get_db_url_by_secret_key(db: Session, secret_key: str) -> models.URL:
@@ -29,20 +29,12 @@ def deactivate_db_url_by_secret_key(db: Session, secret_key: str) -> models.URL:
 
 
 def create_db_url(db: Session, url: schemas.URLBase) -> models.URL:
-    if url.custom:
-        key = url.custom
-        secret_key = f"{key}_{keygen.create_random_key(length=8)}"
-        db_url = models.URL(target_url=url.target_url, key=key, secret_key=secret_key)
-        db.add(db_url)
-        db.commit()
-        db.refresh(db_url)
-    else:
-        key = keygen.create_unique_random_key(db)
-        secret_key = f"{key}_{keygen.create_random_key(length=8)}"
-        db_url = models.URL(target_url=url.target_url, key=key, secret_key=secret_key)
-        db.add(db_url)
-        db.commit()
-        db.refresh(db_url)
+    key = keygen.create_unique_random_key(db)
+    secret_key = f"{key}_{keygen.create_random_key(length=8)}"
+    db_url = models.URL(target_url=url.target_url, key=key, secret_key=secret_key)
+    db.add(db_url)
+    db.commit()
+    db.refresh(db_url)
     return db_url
 
 
@@ -51,3 +43,16 @@ def update_db_clicks(db: Session, db_url: schemas.URL) -> models.URL:
     db.commit()
     db.refresh(db_url)
     return db_url
+
+
+def add_user(db: Session, user: auth.NewUser) -> models.User:
+    db_user = models.User(
+        username=user.username,
+        hashed_password=auth.get_password_hash(user.password),
+        fullname=user.full_name,
+        email=user.email,
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
