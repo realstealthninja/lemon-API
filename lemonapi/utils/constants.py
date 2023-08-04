@@ -2,7 +2,6 @@ import asyncpg
 from decouple import config
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
-from typing import Dict
 
 from lemonapi.utils.database import SessionLocal
 
@@ -56,7 +55,7 @@ class Analysis:
 
     def __init__(self, request: Request):
         self.request = request
-        self.data: Dict[str, str] = {}
+        self.data: dict[str, str] = {}
 
     def get_request_origin(self):
         """Returns the origin of the request."""

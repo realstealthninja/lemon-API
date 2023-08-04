@@ -1,5 +1,3 @@
-from typing import Optional
-
 import validators
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -84,8 +82,8 @@ WOW = []
 class FormManager:
     def __init__(self, request: Request):
         self.request: Request = request
-        self.url: Optional[str] = None
-        self.optional: Optional[str] = None
+        self.url: str | None = None
+        self.optional: str | None = None
 
     async def load(self):
         form = await self.request.form()

@@ -15,7 +15,7 @@ description = """
 Nipa-API helps you do awesome stuff. 🚀
 """
 
-favicon_path = "/static/images/favicon.ico"
+favicon_path = "./static/images/favicon.ico"
 
 app = FastAPI(
     title="API",
@@ -29,7 +29,7 @@ app = FastAPI(
     },
     license_info={
         "name": "MIT license",
-        "url": "https://github.com/Nipa-Code/lemon-API/blob/master/LICENSE",
+        "url": "https://github.com/Nipa-Code/lemon-API/blob/main/LICENSE",
     },
     docs_url=None,  # set docs to None and use custom template
     redoc_url=None,

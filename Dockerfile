@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.10
 WORKDIR /lemonapi
 COPY requirements.txt requirements.txt
 RUN /usr/local/bin/python -m pip install --upgrade pip && pip install --no-cache-dir --upgrade -r requirements.txt
