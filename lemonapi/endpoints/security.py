@@ -2,7 +2,7 @@ from datetime import timedelta
 from typing import Annotated
 from sqlalchemy.orm import Session
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status, Security
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from lemonapi.utils.auth import (
@@ -12,6 +12,7 @@ from lemonapi.utils.auth import (
     authenticate_user,
     create_access_token,
     get_current_active_user,
+    RequiredScopes,
 )
 from lemonapi.utils import crud
 from lemonapi.utils.decorators import limiter
@@ -40,7 +41,7 @@ async def login_for_access_token(
         )
     access_token_expires = timedelta(minutes=Server.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username, "scopes": form_data.scopes},
+        data={"sub": user.username, "scopes": Server.SCOPES[0]},
         expires_delta=access_token_expires,
     )
     return {"access_token": access_token, "token_type": "bearer"}
@@ -48,7 +49,10 @@ async def login_for_access_token(
 
 @router.get("/users/me/", response_model=User)
 async def read_users_me(
-    current_user: Annotated[User, Depends(get_current_active_user)]
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    authorize: Annotated[
+        RequiredScopes, Depends(RequiredScopes(required_scopes=["users:read"]))
+    ],
 ):
     return current_user
 
@@ -79,7 +83,7 @@ async def post_test_login(request: Request):
 
 @router.get("/users/me/items/")
 async def read_own_items(
-    current_user: Annotated[User, Security(get_current_active_user, scopes=["items"])]
+    current_user: Annotated[User, Depends(get_current_active_user)]
 ):
     """This is a testing endpoint that can be used to test the scopes of the user."""
     return [{"item_id": "Foo", "owner": current_user.username}]

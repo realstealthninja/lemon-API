@@ -1,4 +1,5 @@
 from fastapi import status, HTTPException
+from lemonapi.utils.constants import Server
 
 from sqlalchemy.orm import Session
 
@@ -63,6 +64,7 @@ def add_user(db: Session, user: auth.NewUser) -> models.User:
         hashed_password=auth.get_password_hash(user.password),
         fullname=user.full_name,
         email=user.email,
+        scopes=[Server.SCOPES[0]],
     )
     db.add(db_user)
     db.commit()

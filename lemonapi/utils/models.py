@@ -22,5 +22,6 @@ class User(Base):
     fullname = Column(String, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String, unique=True, index=True)
+    scopes = Column(ARRAY(String))
     disabled = Column(Boolean, default=False)
     urls = Column(ARRAY(String))

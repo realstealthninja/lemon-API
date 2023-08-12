@@ -20,6 +20,7 @@ class Server:
         default="postgres://postgres:secretdefaultpassword@127.0.0.1:8000/lemon",
     )
     DB_POOL = asyncpg.create_pool(db_url)
+    SCOPES = ["users:read"]
 
 
 class FormsManager:
