@@ -1,3 +1,6 @@
+from fastapi import status, HTTPException
+from lemonapi.utils.constants import Server
+
 from sqlalchemy.orm import Session
 
 from . import keygen, models, schemas, auth
@@ -45,12 +48,23 @@ def update_db_clicks(db: Session, db_url: schemas.URL) -> models.URL:
     return db_url
 
 
+def get_list_of_usernames(db: Session) -> list[str]:
+    return [user.username for user in db.query(models.User).all()]
+
+
 def add_user(db: Session, user: auth.NewUser) -> models.User:
+    username_taken = HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="Username already exists.",
+    )
+    if user.username in get_list_of_usernames(db):
+        raise username_taken  # raise exception if username already exists
     db_user = models.User(
         username=user.username,
         hashed_password=auth.get_password_hash(user.password),
         fullname=user.full_name,
         email=user.email,
+        scopes=[Server.SCOPES[0]],
     )
     db.add(db_user)
     db.commit()

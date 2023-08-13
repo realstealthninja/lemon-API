@@ -1,11 +1,12 @@
 from functools import lru_cache
 
 from loguru import logger
-from pydantic import BaseSettings
+
+# from pydantic_settings import BaseSettings
 from decouple import config
 
 
-class Settings(BaseSettings):
+class Settings:  # remove BaseSettings because pydantic complains
     port: str = "5001"
     env_name: str = "Local"
     base_url: str = f"http://localhost:{port}"
