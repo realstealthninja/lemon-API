@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta
 from typing import Annotated
 from loguru import logger
+import secrets
+
+from asyncpg import Connection
 
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
@@ -50,6 +53,19 @@ class NewUser(BaseModel):
     full_name: str
 
 
+class RefreshToken(BaseModel):
+    refresh_token: str
+
+
+class AccessToken(RefreshToken):
+    """Response for requesting a new access token."""
+
+    access_token: str
+    token_type: str
+    expires_in: int
+    refresh_token: str
+
+
 def verify_password(plain_password, hashed_password):
     """Verify the password."""
     return pwd_context.verify(plain_password, hashed_password)
@@ -80,13 +96,31 @@ def authenticate_user(username: str, password: str, db: Session = Depends(get_db
     return user
 
 
+async def refresh_token(conn: Connection, data: dict):
+    # Generate 22 char long string
+    token_salt = secrets.token_urlsafe(16)
+
+    expiration = datetime.utcnow() + timedelta(seconds=Server.REFRESH_EXPIRE_IN)
+    token = jwt.encode(
+        {
+            "id": "user_id",  # NOTE: Not done
+            "grant_type": "refresh_token",
+            "expiration": expiration.timestamp(),
+            "salt": token_salt,
+        },
+        Server.SECRET_KEY,
+        algorithm=Server.ALGORITHM,
+    )
+    return token
+
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
     """Creates the access token for the API."""
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(seconds=Server.ACCESS_EXPIRE_IN)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, Server.SECRET_KEY, algorithm=Server.ALGORITHM)
     return encoded_jwt

@@ -14,6 +14,7 @@ class URL(Base):
     clicks = Column(Integer, default=0)
 
 
+
 class User(Base):
     __tablename__ = "users"
 

@@ -12,7 +12,8 @@ class Server:
     # the 3 constants below are used in authentication file (auth.py)
     SECRET_KEY = config("SECRET_KEY")
     ALGORITHM = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES = 30
+    ACCESS_EXPIRE_IN = 3600
+    REFRESH_EXPIRE_IN = ACCESS_EXPIRE_IN * 6
 
     TEMPLATES = Jinja2Templates(directory="lemonapi/templates")
     db_url = config(
@@ -20,6 +21,7 @@ class Server:
         default="postgres://postgres:secretdefaultpassword@127.0.0.1:8000/lemon",
     )
     DB_POOL = asyncpg.create_pool(db_url)
+
     SCOPES = ["users:read"]
 
 

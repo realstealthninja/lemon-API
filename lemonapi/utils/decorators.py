@@ -5,6 +5,8 @@ from fastapi import HTTPException
 
 client = Redis(host="redis")
 
+# This is deprecated and no longer supported.
+# Avoid using this.
 
 async def limit(key: str, limit: int = 5, ttl: int = 60) -> dict:
     """Basic rate limiter for endpoints.

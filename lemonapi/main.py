@@ -2,13 +2,15 @@ import datetime
 import socket
 
 from decouple import config
+from loguru import logger
+
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import RedirectResponse, Response, FileResponse
-from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from lemonapi.endpoints import lemons, security, shortener, moderation
 from lemonapi.utils.auth import get_current_active_user
+from lemonapi.utils.database import Connection
 from lemonapi.utils.constants import Server
 
 description = """
@@ -37,7 +39,7 @@ app = FastAPI(
 
 
 # add routers to API
-app.include_router(security.router, tags=["security"])
+app.include_router(security.router, tags=["security"], prefix="/auth")
 app.include_router(moderation.router, tags=["moderation"])
 app.include_router(
     lemons.router, tags=["lemons"], dependencies=[Depends(get_current_active_user)]
@@ -46,20 +48,13 @@ app.include_router(shortener.router, tags=["shortener"])
 
 
 @app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    # simple IP ban check, if IP is banned then return 403.
-    # This feature is not yet implemented properly.
-    if (
-        str(request.client.host) in moderation.banned
-        and moderation.banned[str(request.client.host)] is True
-    ):
-        return Response(
-            content="You are banned from this server.",
-            status_code=403,
-        )
-    else:
+async def setup(request: Request, call_next) -> Response:
+    """Get connection from pool"""
+    async with Server.DB_POOL.acquire() as connection:
+        request.state.db_conn = connection
         response = await call_next(request)
-        return response
+    request.state.db_conn = None
+    return response
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -85,6 +80,16 @@ async def startup() -> None:
 
     logger.info(f"Local network: http://{local_ip}:5001")
     logger.info(f"Server started at: {datetime.datetime.now()}")
+    # Create database connection pool
+    await Connection.DB_POOL
+
+
+@app.on_event("shutdown")
+async def shutdown() -> None:
+    """Shutdown event for the server."""
+    logger.info(f"Server shutting down at: {datetime.datetime.now()}")
+    # Close database connection pool
+    await Connection.DB_POOL.close()
 
 
 @app.get("/docs/", include_in_schema=False)
@@ -97,7 +102,7 @@ async def get_docs(request: Request):
 @app.get("/favicon.ico", response_class=FileResponse, include_in_schema=False)
 async def get_favicon(request: Request):
     """This is the favicon.ico file that is returned from the server."""
-    return favicon_path
+    return FileResponse(favicon_path)
 
 
 @app.get("/", include_in_schema=False)
@@ -108,3 +113,8 @@ async def home(request: Request):
     :return: RedirectResponse
     """
     return RedirectResponse("/docs/")
+
+
+@app.get("/status/")
+async def server_status(request: Request):
+    return {"message": "200, ok"}

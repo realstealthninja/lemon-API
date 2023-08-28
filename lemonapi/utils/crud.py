@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from . import keygen, models, schemas, auth
 
+from asyncpg import Connection
+
 
 def get_db_url_by_secret_key(db: Session, secret_key: str) -> models.URL:
     return (
@@ -13,6 +15,11 @@ def get_db_url_by_secret_key(db: Session, secret_key: str) -> models.URL:
         .first()
     )
 
+async def get_url_by_key_async(conn: Connection, url_key: str):
+    row = await conn.fetchrow(
+        "SELECT * FROM urls WHERE key = $1 AND is_active = $2", url_key, True
+    )
+    return row
 
 def get_db_url_by_key(db: Session, url_key: str) -> models.URL:
     return (
@@ -52,13 +59,21 @@ def get_list_of_usernames(db: Session) -> list[str]:
     return [user.username for user in db.query(models.User).all()]
 
 
+def get_list_of_emails(db: Session) -> list[str]:
+    return [user.email for user in db.query(models.User).all()]
+
+
 def add_user(db: Session, user: auth.NewUser) -> models.User:
-    username_taken = HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail="Username already exists.",
-    )
     if user.username in get_list_of_usernames(db):
-        raise username_taken  # raise exception if username already exists
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Username already exists.",
+        )  # raise exception if username already exists
+    elif user.email in get_list_of_emails(db):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already exists.",
+        )
     db_user = models.User(
         username=user.username,
         hashed_password=auth.get_password_hash(user.password),
