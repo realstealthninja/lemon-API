@@ -15,11 +15,13 @@ def get_db_url_by_secret_key(db: Session, secret_key: str) -> models.URL:
         .first()
     )
 
+
 async def get_url_by_key_async(conn: Connection, url_key: str):
     row = await conn.fetchrow(
         "SELECT * FROM urls WHERE key = $1 AND is_active = $2", url_key, True
     )
     return row
+
 
 def get_db_url_by_key(db: Session, url_key: str) -> models.URL:
     return (

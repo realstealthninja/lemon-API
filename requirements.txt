@@ -10,9 +10,9 @@ pydantic-settings == 2.0.2
 python-decouple == 3.8
 python-jose == 3.3.0
 python-multipart == 0.0.6
+python-ulid == 1.1.0
 sqlalchemy == 2.0.19
 uvicorn == 0.23.2
 validators == 0.20.0
-python-ulid == 1.1.0
 #websockets == 10.3
 #wsproto == 1.1.0
