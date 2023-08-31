@@ -15,6 +15,11 @@ from lemonapi.utils.auth import (
     get_current_active_user,
     RequiredScopes,
 )
+
+
+from lemonapi.utils.auth import RefreshToken, AccessToken
+from lemonapi.utils import auth
+
 from lemonapi.utils import crud
 from lemonapi.utils.constants import FormsManager, Server, get_db
 
@@ -119,10 +124,6 @@ async def refresh_token(request: Request):
 @router.get("/callback")
 async def auth_callback(request: Request):
     ...
-
-
-from lemonapi.utils.auth import RefreshToken, AccessToken
-from lemonapi.utils import auth
 
 
 @router.post("/authenticate", response_model=AccessToken)

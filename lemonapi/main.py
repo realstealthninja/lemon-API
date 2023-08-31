@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.responses import RedirectResponse, Response, FileResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from lemonapi.endpoints import lemons, security, shortener, moderation
+from lemonapi.endpoints import shortener #lemons, security, shortener, moderation
 from lemonapi.utils.auth import get_current_active_user
 from lemonapi.utils.database import Connection
 from lemonapi.utils.constants import Server
@@ -39,21 +39,24 @@ app = FastAPI(
 
 
 # add routers to API
-app.include_router(security.router, tags=["security"], prefix="/auth")
-app.include_router(moderation.router, tags=["moderation"])
-app.include_router(
-    lemons.router, tags=["lemons"], dependencies=[Depends(get_current_active_user)]
-)
-app.include_router(shortener.router, tags=["shortener"])
+if Server.DEBUG:
+    from lemonapi.endpoints import testing
+    app.include_router(testing.router, tags=["testing"])
+#app.include_router(security.router, tags=["security"], prefix="/auth")
+#app.include_router(moderation.router, tags=["moderation"])
+#app.include_router(
+#    lemons.router, tags=["lemons"], dependencies=[Depends(get_current_active_user)]
+#)
+#app.include_router(shortener.router, tags=["shortener"])
 
 
 @app.middleware("http")
 async def setup(request: Request, call_next) -> Response:
     """Get connection from pool"""
-    async with Server.DB_POOL.acquire() as connection:
-        request.state.db_conn = connection
-        response = await call_next(request)
-    request.state.db_conn = None
+    #async with Connection.DB_POOL.acquire() as connection:
+    #    request.state.db_conn = connection
+    response = await call_next(request)
+    #request.state.db_conn = None
     return response
 
 
@@ -99,11 +102,11 @@ async def get_docs(request: Request):
     return Server.TEMPLATES.TemplateResponse(name, {"request": request}, 200)
 
 
-@app.get("/favicon.ico", response_class=FileResponse, include_in_schema=False)
+'''@app.get("/favicon.ico", response_class=FileResponse, include_in_schema=False)
 async def get_favicon(request: Request):
     """This is the favicon.ico file that is returned from the server."""
     return FileResponse(favicon_path)
-
+'''
 
 @app.get("/", include_in_schema=False)
 async def home(request: Request):

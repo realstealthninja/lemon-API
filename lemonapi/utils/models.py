@@ -1,4 +1,4 @@
-from sqlalchemy import ARRAY, Boolean, Column, Integer, String
+"""from sqlalchemy import ARRAY, Boolean, Column, Integer, String
 
 from .database import Base
 
@@ -25,3 +25,4 @@ class User(Base):
     scopes = Column(ARRAY(String))
     disabled = Column(Boolean, default=False)
     urls = Column(ARRAY(String))
+"""

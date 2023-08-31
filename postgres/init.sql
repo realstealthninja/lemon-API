@@ -3,10 +3,10 @@ CREATE TABLE IF NOT EXISTS public.users (
     username text UNIQUE,
     hashed_password text NOT NULL,
     fullname text NOT NULL,
-    email UNIQUE,
+    email text UNIQUE,
     scopes text array,
-    disabled boolean NOT NULL DEFAULT FALSE,
-    is_admin boolean NOT NULL DEFAULT FALSE,
+    is_banned boolean NOT NULL DEFAULT 'false',
+    is_admin boolean NOT NULL DEFAULT 'false'
 );
 
 CREATE TABLE IF NOT EXISTS public.urls (
@@ -14,20 +14,18 @@ CREATE TABLE IF NOT EXISTS public.urls (
     url_key text UNIQUE,
     secret_key text UNIQUE,
     target_url text NOT NULL,
-    is_active boolean NOT NULL DEFAULT TRUE,
+    is_active boolean NOT NULL DEFAULT 'true',
     clicks int8 NOT NULL DEFAULT 0,
-    created_at timestamp NOT NULL DEFAULT NOW(),
-
+    created_at timestamp NOT NULL DEFAULT NOW()
 );
 
-INSER INTO users VALUES (
+INSERT INTO users VALUES (
     '01H8YA58JAE536F5XGMBM5NGMX',
     'admin',
     'secret_hash_placeholder',
     'Mr. Admin',
     'admin@localhost',
-    ARRAY ['admin']
-    FALSE,
-    TRUE,
-
-);
+    ARRAY ['admin'],
+    'false',
+    'true'
+) ON CONFLICT DO NOTHING; -- only insert if not exists

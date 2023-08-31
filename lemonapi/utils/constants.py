@@ -1,10 +1,7 @@
-import asyncpg
 from decouple import config
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
-
-from lemonapi.utils.database import SessionLocal
-
+from lemonapi.utils import database
 
 class Server:
     """Server class to handle the server constant variables."""
@@ -15,12 +12,14 @@ class Server:
     ACCESS_EXPIRE_IN = 3600
     REFRESH_EXPIRE_IN = ACCESS_EXPIRE_IN * 6
 
+    DEBUG = True
+
     TEMPLATES = Jinja2Templates(directory="lemonapi/templates")
-    db_url = config(
-        "DATABSE_URL",
-        default="postgres://postgres:secretdefaultpassword@127.0.0.1:8000/lemon",
-    )
-    DB_POOL = asyncpg.create_pool(db_url)
+    # db_url = config(
+    #    "DATABSE_URL",
+    #    default="postgres://postgres:secretdefaultpassword@127.0.0.1:8000/lemon",
+    # )
+    # DB_POOL = asyncpg.create_pool(db_url)
 
     SCOPES = ["users:read"]
 
@@ -45,12 +44,12 @@ class FormsManager:
         return self.__dict__.keys()
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    async with database.Connection.DB_POOL.acquire() as db:
+        try:
+            yield db
+        finally:
+            await db.close()
 
 
 class Analysis:
