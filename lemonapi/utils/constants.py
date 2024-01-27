@@ -1,6 +1,8 @@
 from decouple import config
+
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
+
 from lemonapi.utils import database
 
 
@@ -10,7 +12,7 @@ class Server:
     # the 3 constants below are used in authentication file (auth.py)
     SECRET_KEY = config("SECRET_KEY", cast=str)
     ALGORITHM = "HS256"
-    ACCESS_EXPIRE_IN = 3600
+    ACCESS_EXPIRE_IN = 3600  # value in seconds
     REFRESH_EXPIRE_IN = ACCESS_EXPIRE_IN * 6
 
     DEBUG = config("DEBUG", cast=bool, default=False)
@@ -18,19 +20,11 @@ class Server:
     TEMPLATES = Jinja2Templates(directory="lemonapi/templates")
 
     SCOPES = ["users:read"]
-
-
-async def get_db():
-    async with database.Connection.DB_POOL.acquire() as db:
-        try:
-            yield db
-        finally:
-            await db.close()
-
-
-async def protected():
-    """Protected route. Require checks to pass."""
-    raise NotImplementedError
+    # key lenght is used for shortened urls.
+    # value of default 5 geneerates shortened urls like:
+    # http://localhost:5000/UEFIS
+    KEY_LENGTH = 5
+    SECRET_KEY_LENGTH = 10
 
 
 class FormsManager:

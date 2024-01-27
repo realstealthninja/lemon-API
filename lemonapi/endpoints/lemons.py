@@ -67,4 +67,4 @@ async def quote(request: Request) -> dict:
     quote & author.
     """
     pick = random.choice(quotes.QUOTES)
-    return {"message": pick}
+    return pick

@@ -1,3 +1,5 @@
+import asyncpg
+
 from typing import Annotated
 from asyncpg import Connection
 
@@ -8,8 +10,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from lemonapi.utils import auth
 from lemonapi.utils import crud
+from lemonapi.utils import database
+from lemonapi.utils import dependencies
 
-from lemonapi.utils.constants import Server, get_db
+from lemonapi.utils.constants import Server
+
 from lemonapi.utils.auth import (
     User,
     get_current_active_user,
@@ -18,6 +23,26 @@ from lemonapi.utils.auth import (
 )
 
 router = APIRouter()
+
+
+@router.get("/example-dep-usage")
+async def route(pool: dependencies.PoolDep):
+    # with block closes the connection. If you pass the connection elsewhere you
+    # must do it within the block
+    async with pool.acquire() as con:
+        res = await con.fetch(...)
+
+
+@router.get("/showtoken")
+async def show_token(request: Request, token: Annotated[str | None, Cookie()] = None):
+    context = {"request": request}
+    if token:
+        context["token"] = token
+        template_name = "api_token.html"
+        return Server.TEMPLATES.TemplateResponse(template_name, context)
+
+    else:
+        return {"detail": "No token found"}
 
 
 @router.post("/token")
@@ -41,7 +66,9 @@ async def login_for_refresh_token(
     HTTPException
         When incorrect username or password is provided.
     """
-    user = await auth.authenticate_user(form_data.username, form_data.password, db=db)
+    user = await auth.authenticate_user(
+        form_data.username, form_data.password, request=request, db=db
+    )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -107,16 +134,16 @@ async def add_user(
     return db_user
 
 
-@router.get("/showtoken")
-async def show_token(request: Request, token: Annotated[str | None, Cookie()] = None):
-    context = {"request": request}
-    if token:
-        context["token"] = token
-        template_name = "api_token.html"
-        return Server.TEMPLATES.TemplateResponse(template_name, context)
-
-    else:
-        return {"detail": "No token found"}
+@router.patch("/users/update/password/")
+async def update_password(
+    request: Request,
+    user: Annotated[User, Depends(get_current_active_user)],
+    new_password: str,
+    db: Connection = Depends(get_db),
+):
+    """Update user password."""
+    row, message = await crud.update_password(db, user, new_password)
+    return {"detail": row, "dt": message}
 
 
 @router.get("/users/me/", response_model=User)

@@ -1,10 +1,9 @@
 from fastapi import status, HTTPException
 
-# from sqlalchemy.orm import Session
 
 from . import keygen, schemas, auth
+from .constants import Server
 from loguru import logger
-
 from asyncpg import Connection
 from ulid import ULID
 
@@ -37,7 +36,9 @@ async def deactivate_db_url_by_secret_key(conn: Connection, secret_key: str):
 
 async def create_db_url(conn: Connection, url: schemas.URLBase):
     key = await keygen.create_unique_random_key(conn)
-    secret_key = f"{key}_{await keygen.create_random_key(length=8)}"
+    secret_key_length = Server.SECRET_KEY_LENGTH
+    secret_key = f"{key}_{await keygen.create_random_key(length=secret_key_length)}"
+
     async with conn.transaction():
         await conn.execute(
             "INSERT INTO urls (target_url, url_key, secret_key) VALUES ($1, $2, $3)",
@@ -85,6 +86,7 @@ async def add_user(conn: Connection, user: auth.NewUser):
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already exists.",
         )
+    # create user ID
     ulid = ULID()
     user_id_str = str(ulid)
     async with conn.transaction():
@@ -107,3 +109,20 @@ async def add_user(conn: Connection, user: auth.NewUser):
             user.username,
         )
     return row
+
+
+async def update_password(conn: Connection, user: auth.User, new_password: str):
+    """Update user password, fetch user from db using User object passed to function"""
+    row = await auth.get_user(user.username, conn)
+    hashed_password = await auth.get_password_hash(new_password)
+    async with conn.transaction():
+        await conn.execute(
+            "UPDATE users SET hashed_password = $1 WHERE user_id = $2",
+            hashed_password,
+            row["user_id"],
+        )
+        row = await conn.fetchrow(
+            "SELECT * FROM users WHERE user_id = $1",
+            row["user_id"],
+        )
+    return row, f"Password updated to '{new_password}' successfully."

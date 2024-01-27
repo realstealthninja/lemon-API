@@ -1,15 +1,15 @@
-from datetime import datetime, timedelta
-from typing import Annotated
-from loguru import logger
 import secrets
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from typing import Annotated
+from loguru import logger
 from passlib.context import CryptContext
 from pydantic import BaseModel, ValidationError
-
 from asyncpg import Connection, Record
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
+
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordBearer
 
 from lemonapi.utils.constants import Server, get_db
 
@@ -101,16 +101,13 @@ def get_password_hash(password: str) -> str:
 
 
 async def get_user(
-    username: str, password: str, db: Annotated[Connection, Depends(get_db)]
+    username: str, db: Annotated[Connection, Depends(get_db)]
 ) -> UserInDB | None:
-    """_summary_
-
+    """
     Parameters
     ----------
     username : str
         Username of the user.
-    password : str
-        unused but required because code breaks for some reason
     db : Annotated[Connection, Depends]
         Database connection from session.
 
@@ -127,7 +124,10 @@ async def get_user(
 
 
 async def authenticate_user(
-    username: str, password: str, db: Annotated[Connection, Depends(get_db)]
+    username: str,
+    password: str,
+    request: Request | None,
+    db: Annotated[Connection, Depends(get_db)],
 ):
     """
     Authenticate the user with username and password.
@@ -146,10 +146,12 @@ async def authenticate_user(
     _type_ missing
         _description_ not sure, missing value
     """
-    user = await get_user(username, password, db)
+    user = await get_user(username, db)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
+        if request:
+            logger.warning(f"Password incorrect: {request.headers['host']}")
         return False
 
     return user
@@ -159,7 +161,7 @@ async def reset_refresh_token(
     db: Annotated[Connection, Depends(get_db)], user_id: str
 ) -> tuple[str, Record]:
     """
-    Reset the refresh token for the user or receive it..
+    Reset the refresh token for the user or receive it.
 
     Parameters
     ----------
@@ -234,8 +236,18 @@ async def create_access_token(
         "SELECT user_id, key_salt, scopes FROM users WHERE user_id = $1",
         token_data["id"],
     )
+    # validate salt
+    if row["key_salt"] != token_data["salt"]:
+        logger.warning("Invalid salt detected")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     if int(token_data["expiration"]) < datetime.utcnow().timestamp():
         refresh_token, row = await reset_refresh_token(db, row["user_id"])
+
     token = jwt.encode(
         {
             "id": token_data["id"],
@@ -292,7 +304,7 @@ async def get_current_user(
     except (JWTError, ValidationError):
         logger.trace("JWT Error, invalid token")
         raise credentials_exception
-    user = await get_user(username=token_data.username, password="", db=db)
+    user = await get_user(username=token_data.username, db=db)
     if user is None:
         logger.trace("User not found but ID was in token")
         raise credentials_exception
@@ -321,20 +333,6 @@ async def get_current_active_user(
         When the user is disabled.
     """
     if current_user.is_disabled:
+        logger.trace(f"Inactive user requested: {current_user} ")
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
-
-
-class RequiredScopes:
-    def __init__(self, required_scopes: list[str]) -> None:
-        self.required_scopes = required_scopes
-
-    def __call__(self, user: User = Depends(get_current_user)) -> bool:
-        for permission in self.required_scopes:
-            if permission not in user.scopes:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Not enough permissions",
-                    headers={"WWW-Authenticate": "Scopes"},
-                )
-        return True

@@ -32,6 +32,8 @@ services:
     container_name: prometheuss
     ports:
       - 9090:9090
+    depends_on:
+      - web
     volumes:
       - ./metrics/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
@@ -43,6 +45,7 @@ services:
     user: "472"
     container_name: grafanas
     depends_on:
+      - web
       - prometheus
     ports:
       - 3000:3000

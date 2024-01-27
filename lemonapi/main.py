@@ -6,8 +6,10 @@ import pathlib
 
 from loguru import logger
 from prometheus_fastapi_instrumentator import Instrumentator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Depends
+from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, Response, FileResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -31,11 +33,43 @@ app = FastAPI(
         "url": "https://github.com/Nipa-Code/lemon-API/blob/main/LICENSE",
     },
     docs_url=None,  # set docs to None and use custom template
-    redoc_url=None,
+    redoc_url="/redoc",
 )
 # initialize prometheus metrics
 Instrumentator().instrument(app).expose(app)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+
+        logger.info(f"Local network: http://{local_ip}:5001")
+    except Exception:
+        logger.error("Failure to get local network IP address.")
+        logger.trace(
+            "Startup failed to receive network IP address, proceeding anyways."
+        )
+
+    logger.info(f"Server started at: {datetime.datetime.now()}")
+    # Create database connection pool
+    # try:
+    await Connection.DB_POOL
+    # except socket.gaierror:
+    # logger.trace("Failed to connect to database, retrying in 1 second.")
+    # await asyncio.sleep(1)
+    # await Connection.DB_POOL
+    yield
+    # closing down
+    await Connection.DB_POOL.close()
+
+
+app.mount(
+    "/static",
+    StaticFiles(directory="lemonapi/static"),
+    name="static",
+)
 # By default this value is set to False and is configured without need of user.
 # This is only used for testing purposes during development.
 if Server.DEBUG:
@@ -48,6 +82,7 @@ app.include_router(
     lemons.router, tags=["lemons"], dependencies=[Depends(get_current_active_user)]
 )
 app.include_router(shortener.router, tags=["shortener"])
+# app.include_router(admin.router, tags=["admin"])
 
 # Add prometheus middleware
 # NOTE this requires new implementation as it slows down the server
