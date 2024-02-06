@@ -1,6 +1,16 @@
 """
 Under development, this file has no usage yet, please don't even try to use it.
 """
+# TODO:
+# Logging and Auditing
+# Rate Limiting
+# API Key Management
+# IP Whitelisting/Blacklisting
+# Data Integrity Checks (validating data formats, preventing SQL injection,
+# and other security measures)
+# Caching
+# Encryption
+#  Secure metrics endpoint
 
 
 from fastapi import APIRouter

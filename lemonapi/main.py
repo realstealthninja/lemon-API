@@ -1,42 +1,28 @@
 import datetime
 import socket
 import logging
-import asyncio
 import pathlib
+import typing
 
 from loguru import logger
-from prometheus_fastapi_instrumentator import Instrumentator
+from aioprometheus import MetricsMiddleware, REGISTRY, Counter, render
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse, Response, FileResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from lemonapi.endpoints import shortener, lemons, security  # moderation
+from lemonapi.endpoints import security, shortener, lemons  # moderation
 from lemonapi.utils.constants import Server
 from lemonapi.utils.auth import get_current_active_user
 from lemonapi.utils.database import Connection
-from lemonapi.utils import promthutils
+
+# from lemonapi.utils import promthutils
 
 description = """Random API"""
 
 favicon_path = pathlib.Path("./static/images/favicon.ico")
-
-app = FastAPI(
-    title="API",
-    description=description,
-    version="0.2",
-    terms_of_service="http://example.com/terms/",
-    license_info={
-        "name": "MIT license",
-        "url": "https://github.com/Nipa-Code/lemon-API/blob/main/LICENSE",
-    },
-    docs_url=None,  # set docs to None and use custom template
-    redoc_url="/redoc",
-)
-# initialize prometheus metrics
-Instrumentator().instrument(app).expose(app)
 
 
 @asynccontextmanager
@@ -53,23 +39,41 @@ async def lifespan(app: FastAPI):
         )
 
     logger.info(f"Server started at: {datetime.datetime.now()}")
-    # Create database connection pool
-    # try:
-    await Connection.DB_POOL
-    # except socket.gaierror:
-    # logger.trace("Failed to connect to database, retrying in 1 second.")
-    # await asyncio.sleep(1)
-    # await Connection.DB_POOL
-    yield
-    # closing down
-    await Connection.DB_POOL.close()
 
+    # possible error that might happen: socket.gaierror, if it keeps persisting,
+    # try adding try-except block to catch it and re-do the `await Connection.DB_POOL`
+    # within the block
+
+    # Create database connection pool
+    await Connection.DB_POOL
+
+    yield
+    # closing down, anything after yield will be ran as shutdown event.
+    await Connection.DB_POOL.close()
+    logger.info(f"Server shutting down at: {datetime.datetime.now()}")
+
+
+app = FastAPI(
+    title="API",
+    description=description,
+    version="0.2",
+    terms_of_service="http://example.com/terms/",
+    license_info={
+        "name": "MIT license",
+        "url": "https://github.com/Nipa-Code/lemon-API/blob/main/LICENSE",
+    },
+    docs_url=None,  # set docs to None and use custom template
+    redoc_url="/redoc",
+    lifespan=lifespan,
+)
 
 app.mount(
     "/static",
     StaticFiles(directory="lemonapi/static"),
     name="static",
 )
+
+
 # By default this value is set to False and is configured without need of user.
 # This is only used for testing purposes during development.
 if Server.DEBUG:
@@ -82,11 +86,25 @@ app.include_router(
     lemons.router, tags=["lemons"], dependencies=[Depends(get_current_active_user)]
 )
 app.include_router(shortener.router, tags=["shortener"])
-# app.include_router(admin.router, tags=["admin"])
+
 
 # Add prometheus middleware
-# NOTE this requires new implementation as it slows down the server
-app.add_middleware(promthutils.PrometheusMiddleware, app_name="web")
+app.add_middleware(MetricsMiddleware)
+
+# Define metrics
+app.state.event_counter = Counter("events", "Number of events.", registry=REGISTRY)
+app.state.user_created = Counter(
+    "users_created", "Number of users created.", registry=REGISTRY
+)
+
+# Example query for prometheus to get number of users created in the past week.
+# Counter value as is might not be useful for statistics, but using something like
+# increase gives it a meaningful value.
+# Example query: increase(users_created[1w])
+
+# Other useful stuff to keep in mind:
+# increase(users_created[24h]) returns the number of users created in the last 24 hours
+# rate(users_created[1h]) returns the average per-second users created rate for last 1h
 
 
 class EndpointFilter(logging.Filter):
@@ -114,41 +132,6 @@ async def my_exception_handler(request: Request, exception: StarletteHTTPExcepti
         )
 
 
-@app.on_event("startup")
-async def startup() -> None:
-    """Startup event for the server."""
-    try:
-        hostname = socket.gethostname()
-        local_ip = socket.gethostbyname(hostname)
-
-        logger.info(f"Local network: http://{local_ip}:5001")
-    except Exception:
-        logger.error("Failure to get local network IP address.")
-        logger.trace(
-            "Startup failed to receive network IP address, proceeding anyways."
-        )
-
-    logger.info(f"Server started at: {datetime.datetime.now()}")
-    # Create database connection pool
-    try:
-        await Connection.DB_POOL
-    except socket.gaierror:
-        logger.trace("Failed to connect to database, retrying in 1 second.")
-        await asyncio.sleep(1)
-        await Connection.DB_POOL
-
-    logger.trace("Initialized database connection pool.")
-
-
-@app.on_event("shutdown")
-async def shutdown() -> None:
-    """Shutdown event for the server."""
-    logger.info(f"Server shutting down at: {datetime.datetime.now()}")
-    # Close database connection pool
-    await Connection.DB_POOL.close()
-    logger.trace("Database connection pool closed")
-
-
 @app.get("/docs/", include_in_schema=False)
 async def get_docs(request: Request):
     """Generate documentation for API instead of using the default documentation."""
@@ -173,5 +156,17 @@ async def home():
 
 
 @app.get("/status/")
-async def server_status() -> Response:
+async def server_status(request: Request) -> Response:
+    request.app.state.event_counter.inc(
+        {"path": request.scope["path"], "method": request.scope["method"]}
+    )
     return Response(content="Server is running.", status_code=200)
+
+
+@app.get("/metrics/")
+async def handle_metrics(
+    request: Request,
+    accept: typing.List[str] = Header(None),
+) -> Response:
+    content, http_headers = render(REGISTRY, accept)
+    return Response(content=content, media_type=http_headers["Content-Type"])

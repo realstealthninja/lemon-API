@@ -3,8 +3,6 @@ from decouple import config
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
-from lemonapi.utils import database
-
 
 class Server:
     """Server class to handle the server constant variables."""

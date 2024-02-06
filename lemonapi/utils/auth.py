@@ -4,14 +4,15 @@ from typing import Annotated
 from loguru import logger
 from passlib.context import CryptContext
 from pydantic import BaseModel, ValidationError
-from asyncpg import Connection, Record
+from asyncpg import Record
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 
-from lemonapi.utils.constants import Server, get_db
+from lemonapi.utils.constants import Server
+from lemonapi.utils import dependencies
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # oauth2 security scheme
@@ -100,9 +101,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-async def get_user(
-    username: str, db: Annotated[Connection, Depends(get_db)]
-) -> UserInDB | None:
+async def get_user(username: str, pool: dependencies.PoolDep) -> UserInDB | None:
     """
     Parameters
     ----------
@@ -116,7 +115,8 @@ async def get_user(
     UserInDB | None
         Return None if user is not found.
     """
-    row = await db.fetchrow("SELECT * FROM users WHERE username = $1", username)
+    async with pool.acquire() as con:
+        row = await con.fetchrow("SELECT * FROM users WHERE username = $1", username)
 
     if row:
         return UserInDB(**dict(row))
@@ -127,7 +127,7 @@ async def authenticate_user(
     username: str,
     password: str,
     request: Request | None,
-    db: Annotated[Connection, Depends(get_db)],
+    pool: dependencies.PoolDep,
 ):
     """
     Authenticate the user with username and password.
@@ -146,19 +146,21 @@ async def authenticate_user(
     _type_ missing
         _description_ not sure, missing value
     """
-    user = await get_user(username, db)
+    user = await get_user(username, pool)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
         if request:
             logger.warning(f"Password incorrect: {request.headers['host']}")
+        else:
+            logger.warning("Incorrect password request, host unavailable")
         return False
 
     return user
 
 
 async def reset_refresh_token(
-    db: Annotated[Connection, Depends(get_db)], user_id: str
+    pool: dependencies.PoolDep, user_id: str
 ) -> tuple[str, Record]:
     """
     Reset the refresh token for the user or receive it.
@@ -179,11 +181,12 @@ async def reset_refresh_token(
     token_salt = secrets.token_urlsafe(16)
 
     expiration = datetime.utcnow() + timedelta(seconds=Server.REFRESH_EXPIRE_IN)
-    row = await db.fetchrow(
-        "UPDATE users SET key_salt = $1 WHERE user_id = $2 RETURNING *",
-        token_salt,
-        user_id,
-    )
+    async with pool.acquire() as con:
+        row = await con.fetchrow(
+            "UPDATE users SET key_salt = $1 WHERE user_id = $2 RETURNING *",
+            token_salt,
+            user_id,
+        )
     token = jwt.encode(
         {
             "id": row["user_id"],
@@ -199,7 +202,7 @@ async def reset_refresh_token(
 
 
 async def create_access_token(
-    db: Annotated[Connection, Depends(get_db)], refresh_token: str
+    pool: dependencies.PoolDep, refresh_token: str
 ) -> tuple[str, str]:
     """
     Create access token to be used for authentication.
@@ -232,21 +235,22 @@ async def create_access_token(
         )
 
     expire = datetime.utcnow() + timedelta(seconds=Server.ACCESS_EXPIRE_IN)
-    row = await db.fetchrow(
-        "SELECT user_id, key_salt, scopes FROM users WHERE user_id = $1",
-        token_data["id"],
-    )
-    # validate salt
-    if row["key_salt"] != token_data["salt"]:
-        logger.warning("Invalid salt detected")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
+    async with pool.acquire() as con:
+        row = await con.fetchrow(
+            "SELECT user_id, key_salt, scopes FROM users WHERE user_id = $1",
+            token_data["id"],
         )
+        # validate salt
+        if row["key_salt"] != token_data["salt"]:
+            logger.warning("Invalid salt detected")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
-    if int(token_data["expiration"]) < datetime.utcnow().timestamp():
-        refresh_token, row = await reset_refresh_token(db, row["user_id"])
+        if int(token_data["expiration"]) < datetime.utcnow().timestamp():
+            refresh_token, row = await reset_refresh_token(con, row["user_id"])
 
     token = jwt.encode(
         {
@@ -264,7 +268,7 @@ async def create_access_token(
 
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
-    db: Annotated[Connection, Depends(get_db)],
+    pool: dependencies.PoolDep,
 ):
     """
     Get the current user.
@@ -292,19 +296,22 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": authenticate_value},
     )
-    try:
-        payload = jwt.decode(token, Server.SECRET_KEY, algorithms=[Server.ALGORITHM])
-        u_id: str = payload.get("id")
-        if u_id is None:
+    async with pool.acquire() as con:
+        try:
+            payload = jwt.decode(
+                token, Server.SECRET_KEY, algorithms=[Server.ALGORITHM]
+            )
+            u_id: str = payload.get("id")
+            if u_id is None:
+                raise credentials_exception
+            username = await con.fetchrow(
+                "SELECT username FROM users WHERE user_id = $1", u_id
+            )
+            token_data = TokenData(username=str(username[0]))
+        except (JWTError, ValidationError):
+            logger.trace("JWT Error, invalid token")
             raise credentials_exception
-        username = await db.fetchrow(
-            "SELECT username FROM users WHERE user_id = $1", u_id
-        )
-        token_data = TokenData(username=str(username[0]))
-    except (JWTError, ValidationError):
-        logger.trace("JWT Error, invalid token")
-        raise credentials_exception
-    user = await get_user(username=token_data.username, db=db)
+        user = await get_user(username=token_data.username, db=con)
     if user is None:
         logger.trace("User not found but ID was in token")
         raise credentials_exception

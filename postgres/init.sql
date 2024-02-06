@@ -32,7 +32,7 @@ INSERT INTO users VALUES (
     'Mr. Admin',
     'admin@localhost',
     ARRAY ['admin'],
-    DEFAULT,
-    DEFAULT
+    false,
+    true
 ) ON CONFLICT DO NOTHING; -- only insert if not exists
--- password for the user is "weakadmin", update it!
+-- password for the user is "weakadmin", update it!do

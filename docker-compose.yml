@@ -17,7 +17,7 @@ services:
 
   postgres:
     image: postgres:15-alpine
-    restart: always
+    restart: unless-stopped
     container_name: postgres
     volumes:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
