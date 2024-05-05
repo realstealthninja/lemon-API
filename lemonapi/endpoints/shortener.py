@@ -1,31 +1,20 @@
 import validators
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
-from starlette.datastructures import URL
 
-from lemonapi.utils import crud, models, schemas
-from lemonapi.utils.config import get_settings
-from lemonapi.utils.database import engine
-from lemonapi.utils.constants import get_db
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from fastapi.templating import Jinja2Templates
+
+from typing import Annotated
+from loguru import logger
+
+from lemonapi.utils import schemas
+from lemonapi.utils.constants import Server
+from lemonapi.utils.crud import CrudServiceDep
 
 router = APIRouter()
 
-models.Base.metadata.create_all(bind=engine)
 
 templates = Jinja2Templates(directory="lemonapi/templates")
-
-
-def get_admin_info(db_url: models.URL) -> schemas.URLInfo:
-    base_url = URL(get_settings().base_url)
-    admin_endpoint = router.url_path_for(
-        "administration info", secret_key=db_url.secret_key
-    )
-
-    db_url.url = str(base_url.replace(path=db_url.key))
-    db_url.admin_url = str(base_url.replace(path=admin_endpoint))
-    return db_url
 
 
 def raise_bad_request(message):
@@ -38,91 +27,70 @@ def raise_not_found(request):
 
 
 @router.get("/{url_key}", include_in_schema=False)
-def forward_to_target_url(
-    url_key: str, request: Request, db: Session = Depends(get_db)
+async def forward_to_target_url(
+    request: Request, url_key: str, crud_service: CrudServiceDep
 ):
     if url_key == "docs":
         return RedirectResponse("/docs/")
-    if db_url := crud.get_db_url_by_key(db=db, url_key=url_key):
-        crud.update_db_clicks(db=db, db_url=db_url)
-        return RedirectResponse(db_url.target_url)
+    row = await crud_service.get_db_url_by_key(url_key=url_key)
+
+    try:
+        url_object = schemas.URL(**dict(row))
+    except Exception as e:
+        logger.trace(e)
+    if row:
+        row = await crud_service.update_db_clicks(db_url=url_object)
+
+        return RedirectResponse(row["target_url"])
     else:
         raise_not_found(request)
 
 
 @router.delete("/admin/{secret_key}")
-def delete_url(secret_key: str, request: Request, db: Session = Depends(get_db)):
-    if db_url := crud.deactivate_db_url_by_secret_key(db, secret_key=secret_key):
-        message = f"Successfully deleted shortened URL for '{db_url.target_url}'"
+async def delete_url(request: Request, secret_key: str, crud_service: CrudServiceDep):
+    """Deletes url by it's secret key"""
+    if row := await crud_service.deactivate_db_url_by_secret_key(secret_key=secret_key):
+        message = f"""
+        Deleted URL for '{row['url_key']} -> {row['target_url']}'
+        """
+        # if message above fails, it is due to row being None as it's inactive and not
+        # selected by database query resulting to server raising Internal Server Error
         return {"detail": message}
     else:
         raise_not_found(request)
 
 
-URLS = []
-
-
-@router.post("/url/", response_model=schemas.URLInfo)
-def create_url(url: schemas.URLBase, db: Session = Depends(get_db)):
+@router.post("/url/")
+async def create_url(url: schemas.URLBase, crud_service: CrudServiceDep):
     if not validators.url(url.target_url):
         raise HTTPException(status_code=400, detail="Your provided URL is not invalid")
-    db_url = crud.create_db_url(db=db, url=url)
-    URLS.append(f"{get_settings().base_url}/{db_url.key} redirects to {url.target_url}")
-    return get_admin_info(db_url)
+    db_url = await crud_service.create_db_url(url=url)
+
+    return db_url
 
 
-@router.get("/api/urls", response_class=HTMLResponse)
-def get_urls(request: Request):
-    return templates.TemplateResponse("test.html", {"request": request, "urls": URLS})
+@router.get("/url/inspect")
+async def inspect_url(
+    crud_service: CrudServiceDep, url: Annotated[schemas.URLBase, Depends()]
+):
+    """url is the shortened url.
+    for example: 'http://localhost:5000/UEWIS'
+    """
+    if not validators.url(url.target_url):
+        raise HTTPException(status_code=400, detail="Your provided URL is not invalid")
 
+    url_key = url.target_url.split("/")[-1]
+    # url key length does not match the defined length, raise HTTPException
+    if len(url_key) != Server.KEY_LENGTH:
+        raise HTTPException(status_code=400, detail="Your provided URL is not invalid")
 
-WOW = []
+    url_info = await crud_service.get_db_url_by_key(url_key=url_key)
 
+    target = url_info["target_url"]  # target where 'url.target_url' redirects to
+    created_at = url_info["created_at"]
 
-class FormManager:
-    def __init__(self, request: Request):
-        self.request: Request = request
-        self.url: str | None = None
-        self.optional: str | None = None
-
-    async def load(self):
-        form = await self.request.form()
-        self.url = form.get("url")
-
-    def get_url(self):
-        return self.url
-
-
-@router.post("/create/urls")
-async def form_create_url(request: Request, db: Session = Depends(get_db)):
-    data = FormManager(request)
-    await data.load()
-    if not validators.url(data.get_url()):
-        return Response(
-            status_code=400, content=f"Your provided URL '{data.get_url()}' is invalid"
-        )
-    url = schemas.URLBase(target_url=data.get_url())
-    db_url = crud.create_db_url(db=db, url=url)
-    WOW.append(f"{get_settings().base_url}/{db_url.key} redirects to {url.target_url}")
-    return templates.TemplateResponse(
-        "test.html", {"request": request, "info": get_admin_info(db_url)}
+    message = (
+        f"URL '{url.target_url}' redirects to '{target}'. Created at: {created_at}"
     )
 
-
-@router.get("/create/urls")
-async def test_create_url(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(
-        "foo.html", context={"request": request}
-    )  # don't mind the "info: WOW" part, it's just for testing
-
-
-@router.get(
-    "/admin/{secret_key}",
-    name="administration info",
-    response_model=schemas.URLInfo,
-)
-def get_url_info(secret_key: str, request: Request, db: Session = Depends(get_db)):
-    if db_url := crud.get_db_url_by_secret_key(db, secret_key=secret_key):
-        return get_admin_info(db_url)
-    else:
-        raise_not_found(request)
+    return {"detail": message}

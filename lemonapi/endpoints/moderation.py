@@ -2,8 +2,17 @@
 Under development, this file has no usage yet, please don't even try to use it.
 """
 
+# TODO:
+# Logging and Auditing
+# Rate Limiting
+# API Key Management
+# IP Whitelisting/Blacklisting
+# Data Integrity Checks (validating data formats, preventing SQL injection,
+# and other security measures)
+# Caching
+# Encryption
+#  Secure metrics endpoint
 
-from aioredis import Redis
 from fastapi import APIRouter
 
 router = APIRouter()
@@ -17,7 +26,7 @@ class API:
 
     def __init__(self):
         self.debug = False
-        self.redis = Redis(host="redis", port=6379, decode_responses=True)
+        self.redis = None  # Redis(host="redis", port=6379, decode_responses=True)
 
         self.req = str | None  # ip address to ban
 

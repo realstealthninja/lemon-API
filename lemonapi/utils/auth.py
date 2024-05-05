@@ -1,17 +1,18 @@
-from datetime import datetime, timedelta
+import secrets
+
 from typing import Annotated
 from loguru import logger
-
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordBearer, SecurityScopes
-from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel, ValidationError
+from asyncpg import Record
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
 
-from sqlalchemy.orm import Session
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordBearer
 
-from lemonapi.utils.constants import Server, get_db
-from lemonapi.utils import models
+from lemonapi.utils.constants import Server
+from lemonapi.utils import dependencies
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # oauth2 security scheme
@@ -33,9 +34,10 @@ class TokenData(BaseModel):
 
 class User(BaseModel):
     username: str
+    user_id: str
     email: str | None = None
     full_name: str | None = None
-    disabled: bool | None = None
+    is_disabled: bool | None = None
     scopes: list[str] = []
 
 
@@ -50,110 +52,305 @@ class NewUser(BaseModel):
     full_name: str
 
 
-def verify_password(plain_password, hashed_password):
-    """Verify the password."""
+class RefreshToken(BaseModel):
+    refresh_token: str
+
+
+class AccessToken(RefreshToken):
+    """Used as a response for requesting a new access token."""
+
+    access_token: str
+    token_type: str
+    expires_in: int
+    refresh_token: str
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """
+    Function to verify the password.
+
+    Parameters
+    ----------
+    plain_password : str
+        Password in plain text.
+    hashed_password : str
+        The hashed password
+
+    Returns
+    -------
+    bool
+        True if the password matches, False otherwise.
+    """
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def get_password_hash(password):
+def get_password_hash(password: str) -> str:
     """
-    Get the password hash.
-    :param password: The password to be hashed.
+    Function to hash the password from given string.
+
+    Parameters
+    ----------
+    password : str
+        The password to be hashed.
+
+    Returns
+    -------
+    str
+        The hashed password.
     """
     return pwd_context.hash(password)
 
 
-def get_user(username: str, password: str, db: Session = Depends(get_db)):
-    """Get user from database."""
-    db_user = db.query(models.User).filter(models.User.username == username).first()
-    if db_user:
-        return UserInDB(**db_user.__dict__)
+async def get_user(username: str, pool: dependencies.PoolDep) -> UserInDB | None:
+    """
+    Parameters
+    ----------
+    username : str
+        Username of the user.
+    db : Annotated[Connection, Depends]
+        Database connection from session.
+
+    Returns
+    -------
+    UserInDB | None
+        Return None if user is not found.
+    """
+    async with pool.acquire() as con:
+        row = await con.fetchrow("SELECT * FROM users WHERE username = $1", username)
+
+    if row:
+        return UserInDB(**dict(row))
+    return None
 
 
-def authenticate_user(username: str, password: str, db: Session = Depends(get_db)):
-    """Authenticates the user."""
-    user = get_user(username, password, db)
+async def authenticate_user(
+    username: str,
+    password: str,
+    request: Request,
+    pool: dependencies.PoolDep,
+):
+    """
+    Authenticate the user with username and password.
+
+    Parameters
+    ----------
+    username : str
+        Username of the user.
+    password : str
+        Password of the user.
+    db : Annotated[Connection, Depends
+        Database connection from session.
+
+    Returns
+    -------
+    _type_ missing
+        _description_ not sure, missing value
+    """
+    user = await get_user(username, pool)
     if not user:
+        logger.warning(f"Incorrect username attempt from IP: {request.client.host}")
         return False
     if not verify_password(password, user.hashed_password):
+        if request:
+            logger.warning(f"Incorrect password attempt from IP: {request.client.host}")
+        else:
+            logger.warning(f"Incorrect password request from user: {username}")
         return False
+
     return user
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
-    """Creates the access token for the API."""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, Server.SECRET_KEY, algorithm=Server.ALGORITHM)
-    return encoded_jwt
+async def reset_refresh_token(
+    pool: dependencies.PoolDep, user_id: str
+) -> tuple[str, Record]:
+    """
+    Reset the refresh token for the user or receive it.
+
+    Parameters
+    ----------
+    db : Annotated[Connection, Depends]
+        Database connection from session.
+    user_id : str
+        The id of the user.
+
+    Returns
+    -------
+    tuple[str, Record]
+        Tuple containing the refresh token and the row from the database.
+    """
+    # Generate 22 char long string
+    token_salt = secrets.token_urlsafe(16)
+
+    expiration = datetime.utcnow() + timedelta(seconds=Server.REFRESH_EXPIRE_IN)
+    async with pool.acquire() as con:
+        row = await con.fetchrow(
+            "UPDATE users SET key_salt = $1 WHERE user_id = $2 RETURNING *",
+            token_salt,
+            user_id,
+        )
+    token = jwt.encode(
+        {
+            "id": row["user_id"],
+            "grant_type": "refresh_token",
+            "expiration": expiration.timestamp(),
+            "salt": token_salt,
+            "scopes": row["scopes"],
+        },
+        Server.SECRET_KEY,
+        algorithm=Server.ALGORITHM,
+    )
+    return token, row
+
+
+async def create_access_token(
+    pool: dependencies.PoolDep, refresh_token: str, request: Request
+) -> tuple[str, str]:
+    """
+    Create access token to be used for authentication.
+    Refresh existing refresh token if it is expired.
+
+    Parameters
+    ----------
+    db : Annotated[Connection, Depends]
+        database connection from session.
+    refresh_token : str
+        refresh token used to create access token.
+
+    Returns
+    -------
+    tuple[str, str]
+        Tuple containing the access token and refresh token.
+
+    Raises
+    ------
+    HTTPException
+        When the refresh token is invalid.
+    """
+    try:
+        token_data = jwt.decode(refresh_token, Server.SECRET_KEY)
+    except JWTError:
+        logger.warning(f"Incorrect/Invalid token from IP: {request.client.host}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    expire = datetime.utcnow() + timedelta(seconds=Server.ACCESS_EXPIRE_IN)
+    async with pool.acquire() as con:
+        row = await con.fetchrow(
+            "SELECT user_id, key_salt, scopes FROM users WHERE user_id = $1",
+            token_data["id"],
+        )
+        # validate salt
+        if row["key_salt"] != token_data["salt"]:
+            logger.warning("Invalid salt detected")
+            logger.warning(f"Incorrect/Invalid salt from IP: {request.client.host}")
+
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if int(token_data["expiration"]) < datetime.utcnow().timestamp():
+            refresh_token, row = await reset_refresh_token(con, row["user_id"])
+
+    token = jwt.encode(
+        {
+            "id": token_data["id"],
+            "grant_type": "access_token",
+            "expiration": expire.timestamp(),
+            "salt": row["key_salt"],
+            "scopes": row["scopes"],
+        },
+        Server.SECRET_KEY,
+        algorithm=Server.ALGORITHM,
+    )
+    return token, refresh_token
 
 
 async def get_current_user(
-    security_scopes: SecurityScopes,
-    request: Request,
     token: Annotated[str, Depends(oauth2_scheme)],
-    db: Session = Depends(get_db),
+    pool: dependencies.PoolDep,
+    request: Request,
 ):
-    """Get the current user."""
-    logger.info(f"User data: {print(i for i in db.query(models.User).all())}")
-    logger.info([user.scopes for user in db.query(models.User).all()])
-    logger.info(f"More data: {[user for user in db.query(models.User).all()]}")
+    """
+    Get the current user.
 
+    Parameters
+    ----------
+    token : Annotated[str, Depends]
+        Authorization token.
+    db : Annotated[Connection, Depends]
+        Database connection from session.
+
+    Returns
+    -------
+    UserInDB
+        user object with necessary data.
+
+    Raises
+    ------
+    credentials_exception
+        When any of data is not valid.
+    """
     authenticate_value = "Bearer"
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": authenticate_value},
     )
-    try:
-        payload = jwt.decode(token, Server.SECRET_KEY, algorithms=[Server.ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+    async with pool.acquire() as con:
+        try:
+            payload = jwt.decode(
+                token, Server.SECRET_KEY, algorithms=[Server.ALGORITHM]
+            )
+            u_id: str = payload.get("id")
+            if u_id is None:
+                raise credentials_exception
+            username = await con.fetchrow(
+                "SELECT username FROM users WHERE user_id = $1", u_id
+            )
+            token_data = TokenData(username=str(username[0]))
+        except (JWTError, ValidationError):
+            host = request.client.host
+            logger.warning(
+                f"""Incorrect/Invalid token from IP: {
+                    host if host is not None
+                    else 'Unavailable'}"""
+            )
+            logger.trace("JWT Error, invalid token")
             raise credentials_exception
-        token_data = TokenData(username=username)
-        # DEBUG CODE below for testing
-        # user = db.execute(select(models.User).where(
-        # models.User.username == token_data.username)
-        # )
-        # foo = user.first()[0]
-        # logger.critical(f"User info: {foo.username}, {foo.scopes}")
-        # logger.critical(f"scopes: {request.scope}")
-        # logger.info(f"Token data: {token_data}")
-        # logger.debug(payload)
-
-    except (JWTError, ValidationError):
-        logger.error("JWT Error, invalid token")
-        raise credentials_exception
-    user = get_user(username=token_data.username, password="", db=db)
+        user = await get_user(username=token_data.username, pool=con)
     if user is None:
+        logger.trace("User not found but ID was in token")
         raise credentials_exception
-
     return user
 
 
 async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)]
-):
-    """Get the currently active user."""
-    if current_user.disabled:
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """
+    Get the current active user. This user is authenticated.
+
+    Parameters
+    ----------
+    current_user : Annotated[User, Depends]
+        Current user that is received from get_current_user.
+
+    Returns
+    -------
+    User
+        user object with necessary data.
+
+    Raises
+    ------
+    HTTPException
+        When the user is disabled.
+    """
+    if current_user.is_disabled:
+        logger.info(f"Inactive user requested: {current_user} ")
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
-
-
-class RequiredScopes:
-    def __init__(self, required_scopes: list[str]) -> None:
-        self.required_scopes = required_scopes
-
-    def __call__(self, user: User = Depends(get_current_user)) -> bool:
-        for permission in self.required_scopes:
-            if permission not in user.scopes:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Not enough permissions",
-                    headers={"WWW-Authenticate": "Scopes"},
-                )
-        return True
