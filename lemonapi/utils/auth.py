@@ -126,7 +126,7 @@ async def get_user(username: str, pool: dependencies.PoolDep) -> UserInDB | None
 async def authenticate_user(
     username: str,
     password: str,
-    request: Request | None,
+    request: Request,
     pool: dependencies.PoolDep,
 ):
     """
@@ -273,7 +273,7 @@ async def create_access_token(
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
     pool: dependencies.PoolDep,
-    request: Request | None = None,
+    request: Request,
 ):
     """
     Get the current user.
@@ -316,11 +316,13 @@ async def get_current_user(
         except (JWTError, ValidationError):
             host = request.client.host
             logger.warning(
-                f"Incorrect/Invalid token from IP: {host if host is not None else 'Unavailable'}"
+                f"""Incorrect/Invalid token from IP: {
+                    host if host is not None
+                    else 'Unavailable'}"""
             )
             logger.trace("JWT Error, invalid token")
             raise credentials_exception
-        user = await get_user(username=token_data.username, db=con)
+        user = await get_user(username=token_data.username, pool=con)
     if user is None:
         logger.trace("User not found but ID was in token")
         raise credentials_exception

@@ -42,7 +42,7 @@ class CrudService:
                     secret_key,
                 )
             logger.info(
-                f"URL with secret key '{secret_key}' deactivated and deleted from the database."
+                f"URL with secret key '{secret_key}' deleted from the database."
             )
         return db_url
 
@@ -140,7 +140,9 @@ class CrudService:
         """Update user password, fetch user from db using User object passed"""
         async with self.pool.acquire() as con:
             row = await auth.get_user(user.username, con)
-            hashed_password = await auth.get_password_hash(new_password)
+            if row is None:
+                raise HTTPException(404, "user not found")
+            hashed_password = auth.get_password_hash(new_password)
             await con.execute(
                 "UPDATE users SET hashed_password = $1 WHERE user_id = $2",
                 hashed_password,
@@ -151,7 +153,7 @@ class CrudService:
                 row["user_id"],
             )
             logger.info(
-                f"User: '{user.username}' ({user.user_id}) updated password successfully"
+                f"User '{user.username}' ({user.user_id}) updated password successfully"
             )
         return row, f"Password updated to '{new_password}' successfully."
 

@@ -80,11 +80,11 @@ async def inspect_url(
         raise HTTPException(status_code=400, detail="Your provided URL is not invalid")
 
     url_key = url.target_url.split("/")[-1]
-    # url key lenght does not match the defined lenght, raise HTTPException
+    # url key length does not match the defined length, raise HTTPException
     if len(url_key) != Server.KEY_LENGTH:
         raise HTTPException(status_code=400, detail="Your provided URL is not invalid")
 
-    url_info = crud_service.get_db_url_by_key(url_key=url_key)
+    url_info = await crud_service.get_db_url_by_key(url_key=url_key)
 
     target = url_info["target_url"]  # target where 'url.target_url' redirects to
     created_at = url_info["created_at"]

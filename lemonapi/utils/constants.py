@@ -18,7 +18,7 @@ class Server:
     TEMPLATES = Jinja2Templates(directory="lemonapi/templates")
 
     SCOPES = ["users:read"]
-    # key lenght is used for shortened urls.
+    # key length is used for shortened urls.
     # value of default 5 geneerates shortened urls like:
     # http://localhost:5000/UEFIS
     KEY_LENGTH = 5

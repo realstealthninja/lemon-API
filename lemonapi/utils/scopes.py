@@ -39,7 +39,8 @@ class RequiredScopes:
         if missing_permissions:
             missing_permissions_str = ", ".join(missing_permissions)
             logger.warning(
-                f"Unauthorized access attempt by user '{user.username}' ({user.user_id}) to protected endpoint "
+                f"Unauthorized access attempt by user '{user.username}' {user.user_id}"
+                "to protected endpoint "
                 f"without required permission(s): {missing_permissions_str}"
             )
             raise HTTPException(

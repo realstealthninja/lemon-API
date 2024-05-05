@@ -25,7 +25,7 @@ Metrics services when ran locally are located in:
 
 Login to grafana with credentils `admin:pass@123`. Follow the pictures in `metrics/images` for general idea of how to set it up.
 
-This project comes with pre-made grafana dashboard that you can find in metrics/dashboard.json. There are some images in metrics/images on how to start the dashboard and how to configure it correctly. 
+This project comes with pre-made grafana dashboard that you can find in metrics/dashboard.json. There are some images in metrics/images on how to start the dashboard and how to configure it correctly.
 
 ### Credentials
 There are some default credentials for backend and grafana
@@ -46,7 +46,7 @@ There are some default credentials for backend and grafana
 2. Move into the project directory
 3. Install the dependencies with `pip install -r requirements.txt`
 4. Modify the `.env` variables to match the ones in `.env-template`. You can  leave the database variables as they are if you wish to.
-4. Modify the `lemonapi/utils/database.py` file section with `DB_URL` and modify the host part being after `@` sign to match your postgres host. You can leave the default values in `.env` as 
+4. Modify the `lemonapi/utils/database.py` file section with `DB_URL` and modify the host part being after `@` sign to match your postgres host. You can leave the default values in `.env` as
    they are if you wish to In which case the database username will be `admin`, the password will be `admin` and database name will be set to `lemonapi`.
    You can also pass whole connection string there.
 6. All variables should be now set. Run the project with `uvicorn lemonapi.main:app --host=0.0.0.0 --port=5001 --log-level=info`
