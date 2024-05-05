@@ -141,7 +141,7 @@ class CrudService:
         async with self.pool.acquire() as con:
             row = await auth.get_user(user.username, con)
             if row is None:
-                raise HTTPException(404, "user not found")
+                raise HTTPException(404, detail="User not found")
             hashed_password = auth.get_password_hash(new_password)
             await con.execute(
                 "UPDATE users SET hashed_password = $1 WHERE user_id = $2",
