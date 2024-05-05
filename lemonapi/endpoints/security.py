@@ -1,4 +1,5 @@
 from typing import Annotated
+from loguru import logger
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status, Cookie
 from fastapi.responses import RedirectResponse
@@ -71,6 +72,9 @@ async def login_for_refresh_token(
             pool=con,
             user_id=user_id[0],
         )
+    logger.info(
+        f"Successful login: User ID - {user_id}, Client IP - {request.client.host}"
+    )
     redirect = RedirectResponse(url="/showtoken", status_code=303)
     redirect.set_cookie(
         key="token",
@@ -88,6 +92,7 @@ async def login_for_refresh_token(
 
 @router.post("/authenticate", response_model=AccessToken)
 async def authenticate(
+    request: Request,
     body: RefreshToken,
     pool: dependencies.PoolDep,
 ) -> dict:
@@ -106,6 +111,7 @@ async def authenticate(
         access, refresh = await auth.create_access_token(
             pool=con,
             refresh_token=body.refresh_token,
+            request=request,
         )
     return {
         "access_token": access,

@@ -41,7 +41,9 @@ class CrudService:
                     "DELETE FROM urls WHERE secret_key = $1 RETURNING *",
                     secret_key,
                 )
-                logger.trace(f"Deleted data associated with {secret_key} from database")
+            logger.info(
+                f"URL with secret key '{secret_key}' deactivated and deleted from the database."
+            )
         return db_url
 
     async def create_db_url(self, url: schemas.URLBase):
@@ -66,6 +68,7 @@ class CrudService:
                 "SELECT url_key, target_url, secret_key FROM urls WHERE url_key = $1",
                 key,
             )
+            logger.info(f"URL created with key '{key}' in the database.")
         return row
 
     async def update_db_clicks(self, db_url: schemas.URL):
@@ -92,12 +95,15 @@ class CrudService:
 
     async def add_user(self, user: auth.NewUser):
         if user.username in await self.get_list_of_usernames():
+            logger.info(f"User with username '{user.username}' already exists.")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Username already exists.",
             )  # raise exception if username already exists
 
         elif user.email in await self.get_list_of_emails():
+            logger.info(f"Email '{user.email}' already exists.")
+
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Email already exists.",
@@ -125,6 +131,9 @@ class CrudService:
                 "SELECT * FROM users WHERE username = $1",
                 user.username,
             )
+        logger.info(
+            f"User '{user.username}' created successfully with ID '{user_id_str}'."
+        )
         return row
 
     async def update_password(self, user: auth.User, new_password: str):
@@ -140,6 +149,9 @@ class CrudService:
             row = await con.fetchrow(
                 "SELECT * FROM users WHERE user_id = $1",
                 row["user_id"],
+            )
+            logger.info(
+                f"User: '{user.username}' ({user.user_id}) updated password successfully"
             )
         return row, f"Password updated to '{new_password}' successfully."
 

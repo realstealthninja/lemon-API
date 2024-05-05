@@ -169,4 +169,5 @@ async def handle_metrics(
     accept: typing.List[str] = Header(None),
 ) -> Response:
     content, http_headers = render(REGISTRY, accept)
+    logger.trace(f"Metrics requested from IP: {request.client.host}")
     return Response(content=content, media_type=http_headers["Content-Type"])

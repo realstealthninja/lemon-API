@@ -1,6 +1,7 @@
 """
 Under development, this file has no usage yet, please don't even try to use it.
 """
+
 # TODO:
 # Logging and Auditing
 # Rate Limiting
@@ -11,7 +12,6 @@ Under development, this file has no usage yet, please don't even try to use it.
 # Caching
 # Encryption
 #  Secure metrics endpoint
-
 
 from fastapi import APIRouter
 

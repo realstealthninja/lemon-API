@@ -148,12 +148,13 @@ async def authenticate_user(
     """
     user = await get_user(username, pool)
     if not user:
+        logger.warning(f"Incorrect username attempt from IP: {request.client.host}")
         return False
     if not verify_password(password, user.hashed_password):
         if request:
-            logger.warning(f"Password incorrect: {request.headers['host']}")
+            logger.warning(f"Incorrect password attempt from IP: {request.client.host}")
         else:
-            logger.warning("Incorrect password request, host unavailable")
+            logger.warning(f"Incorrect password request from user: {username}")
         return False
 
     return user
@@ -202,7 +203,7 @@ async def reset_refresh_token(
 
 
 async def create_access_token(
-    pool: dependencies.PoolDep, refresh_token: str
+    pool: dependencies.PoolDep, refresh_token: str, request: Request
 ) -> tuple[str, str]:
     """
     Create access token to be used for authentication.
@@ -228,6 +229,7 @@ async def create_access_token(
     try:
         token_data = jwt.decode(refresh_token, Server.SECRET_KEY)
     except JWTError:
+        logger.warning(f"Incorrect/Invalid token from IP: {request.client.host}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
@@ -243,6 +245,8 @@ async def create_access_token(
         # validate salt
         if row["key_salt"] != token_data["salt"]:
             logger.warning("Invalid salt detected")
+            logger.warning(f"Incorrect/Invalid salt from IP: {request.client.host}")
+
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token",
@@ -269,6 +273,7 @@ async def create_access_token(
 async def get_current_user(
     token: Annotated[str, Depends(oauth2_scheme)],
     pool: dependencies.PoolDep,
+    request: Request | None = None,
 ):
     """
     Get the current user.
@@ -309,6 +314,10 @@ async def get_current_user(
             )
             token_data = TokenData(username=str(username[0]))
         except (JWTError, ValidationError):
+            host = request.client.host
+            logger.warning(
+                f"Incorrect/Invalid token from IP: {host if host is not None else 'Unavailable'}"
+            )
             logger.trace("JWT Error, invalid token")
             raise credentials_exception
         user = await get_user(username=token_data.username, db=con)
@@ -319,7 +328,7 @@ async def get_current_user(
 
 
 async def get_current_active_user(
-    current_user: Annotated[User, Depends(get_current_user)]
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> User:
     """
     Get the current active user. This user is authenticated.
@@ -340,6 +349,6 @@ async def get_current_active_user(
         When the user is disabled.
     """
     if current_user.is_disabled:
-        logger.trace(f"Inactive user requested: {current_user} ")
+        logger.info(f"Inactive user requested: {current_user} ")
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
