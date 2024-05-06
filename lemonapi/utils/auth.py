@@ -1,4 +1,5 @@
 import secrets
+import asyncpg
 
 from typing import Annotated
 from loguru import logger
@@ -101,7 +102,7 @@ def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
 
-async def get_user(username: str, pool: dependencies.PoolDep) -> UserInDB | None:
+async def get_user(username: str, con: asyncpg.Connection) -> UserInDB | None:
     """
     Parameters
     ----------
@@ -115,8 +116,8 @@ async def get_user(username: str, pool: dependencies.PoolDep) -> UserInDB | None
     UserInDB | None
         Return None if user is not found.
     """
-    async with pool.acquire() as con:
-        row = await con.fetchrow("SELECT * FROM users WHERE username = $1", username)
+
+    row = await con.fetchrow("SELECT * FROM users WHERE username = $1", username)
 
     if row:
         return UserInDB(**dict(row))
@@ -161,7 +162,7 @@ async def authenticate_user(
 
 
 async def reset_refresh_token(
-    pool: dependencies.PoolDep, user_id: str
+    con: asyncpg.Connection, user_id: str
 ) -> tuple[str, Record]:
     """
     Reset the refresh token for the user or receive it.
@@ -182,12 +183,12 @@ async def reset_refresh_token(
     token_salt = secrets.token_urlsafe(16)
 
     expiration = datetime.utcnow() + timedelta(seconds=Server.REFRESH_EXPIRE_IN)
-    async with pool.acquire() as con:
-        row = await con.fetchrow(
-            "UPDATE users SET key_salt = $1 WHERE user_id = $2 RETURNING *",
-            token_salt,
-            user_id,
-        )
+
+    row = await con.fetchrow(
+        "UPDATE users SET key_salt = $1 WHERE user_id = $2 RETURNING *",
+        token_salt,
+        user_id,
+    )
     token = jwt.encode(
         {
             "id": row["user_id"],
@@ -203,7 +204,7 @@ async def reset_refresh_token(
 
 
 async def create_access_token(
-    pool: dependencies.PoolDep, refresh_token: str, request: Request
+    con: asyncpg.Connection, refresh_token: str, request: Request
 ) -> tuple[str, str]:
     """
     Create access token to be used for authentication.
@@ -237,24 +238,24 @@ async def create_access_token(
         )
 
     expire = datetime.utcnow() + timedelta(seconds=Server.ACCESS_EXPIRE_IN)
-    async with pool.acquire() as con:
-        row = await con.fetchrow(
-            "SELECT user_id, key_salt, scopes FROM users WHERE user_id = $1",
-            token_data["id"],
+
+    row = await con.fetchrow(
+        "SELECT user_id, key_salt, scopes FROM users WHERE user_id = $1",
+        token_data["id"],
+    )
+    # validate salt
+    if row["key_salt"] != token_data["salt"]:
+        logger.warning("Invalid salt detected")
+        logger.warning(f"Incorrect/Invalid salt from IP: {request.client.host}")
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-        # validate salt
-        if row["key_salt"] != token_data["salt"]:
-            logger.warning("Invalid salt detected")
-            logger.warning(f"Incorrect/Invalid salt from IP: {request.client.host}")
 
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        if int(token_data["expiration"]) < datetime.utcnow().timestamp():
-            refresh_token, row = await reset_refresh_token(con, row["user_id"])
+    if int(token_data["expiration"]) < datetime.utcnow().timestamp():
+        refresh_token, row = await reset_refresh_token(con, row["user_id"])
 
     token = jwt.encode(
         {
@@ -322,7 +323,7 @@ async def get_current_user(
             )
             logger.trace("JWT Error, invalid token")
             raise credentials_exception
-        user = await get_user(username=token_data.username, pool=con)
+        user = await get_user(username=token_data.username, con=con)
     if user is None:
         logger.trace("User not found but ID was in token")
         raise credentials_exception

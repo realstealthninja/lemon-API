@@ -62,7 +62,7 @@ app = FastAPI(
         "name": "MIT license",
         "url": "https://github.com/Nipa-Code/lemon-API/blob/main/LICENSE",
     },
-    docs_url=None,  # set docs to None and use custom template
+    docs_url="/altdocs",  # set docs to None and use custom template
     redoc_url="/redoc",
     lifespan=lifespan,
 )

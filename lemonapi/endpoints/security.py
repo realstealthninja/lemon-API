@@ -69,7 +69,7 @@ async def login_for_refresh_token(
             "SELECT user_id FROM users WHERE username = $1", user.username
         )
         refresh_token, _ = await auth.reset_refresh_token(
-            pool=con,
+            con=con,
             user_id=user_id[0],
         )
     logger.info(
@@ -109,7 +109,7 @@ async def authenticate(
     """
     async with pool.acquire() as con:
         access, refresh = await auth.create_access_token(
-            pool=con,
+            con=con,
             refresh_token=body.refresh_token,
             request=request,
         )

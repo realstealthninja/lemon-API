@@ -6,7 +6,7 @@ Small part of larger API. Gives random fact related to lemons. The larger API is
 You may connect to your own postgresql host by modifying `./lemonapi/utils/config.py` ``Server`` class.
 
 ## Credentials
-There are no default testing credentials, you must create user yourself. It is done easily in the `/docs/` endpoint, security section --> `add_user`.
+The default admin credentials are `admin` with password `weakadmin`, change those!
 
 ### Docker usage
 Project has `Dockerfile` and `docker-compose.yml` pre made.
@@ -21,32 +21,54 @@ The API should be running at `http://localhost:5001` check `http://localhost:500
 ## How to make a request to get API token?
 Most of functionality can be tested alone in the `/docs` endpoint, but you may as well interact with code.
 This example will give you access to authorization token used to authenticate your request to endpoints requiring OAuth2.
+Also if you prefer the default docs, you can find them from `/redoc` for redoc docs and `/altdocs` for swagger.
 
 With curl when endpoint is running with https:
 ```bash
-curl -d "username=admin&password=weakadmin" --ssl-no-revoke -X POST https://127.0.0.1:5001/token
+curl -d "username=admin&password=weakadmin" --ssl-no-revoke -X POST https://localhost:5001/token
 ```
+Example below shows basic usage to allow you to receive your API tokens and use them against protected endpoints.
 ```py
 import requests
+import json
 
-data = {"username": "exampleusername", "password": "coolpassword"}  # example data
+# Define user login data
+data = {"username": "admin", "password": "weakadmin"}
 
-resp = session.post(
-    "http://localhost:5001/token", data=data
-)  # request to the server to get token
-
-token = resp.json()["access_token"]  # get the token from the response
-print("access token", token)  # printing the access token
-```
-### Using the API token
-Using the variable `token` from example above. The endpoint `/lemon/verbs` uses OAuth2, so you must pass an Authorization token.
-```py
-import requests
-
-foo = requests.get(
-    "http://localhost:5001/lemon/verbs", headers={"Authorization": f"Bearer {token}"}
+# request to get refresh_token
+resp = requests.post(
+    "http://localhost:5001/token",
+    data=data,
 )
-print(foo.status_code)  # You should be granted with response status 200
+refresh_token = resp.json()["refresh"]
+
+# json.dumps is required, otherwise `requests` will try to send form.
+# request to get access_token
+access_token_resp = requests.post(
+    "http://localhost:5001/authenticate",
+    data=json.dumps({"refresh_token": refresh_token}),
+    headers={"Content-type": "application/json", "accept": "application/json"},
+)
+
+
+# And to test that all is working, running this section as well.
+# You need to pass in the token to get your userinformation.
+access_token = access_token_resp.json()["access_token"]
+foo = requests.get(
+    "http://localhost:5001/users/me",
+    headers={"Authorization": f"Bearer {access_token}"},
+)
+
+# tests against another protected endpoint requiring auth
+bar = requests.get(
+    "http://localhost:5001/lemon/verbs",
+    headers={"Authorization": f"Bearer {access_token_resp.json()["access_token"]}"},
+)
+print(foo.status_code)  # you should be granted with status code 200
+print(foo.json(), "\n")  # this would display your user information
+
+print(bar.status_code)  # you should be granted with status code 200
+print(bar.json())  # should return random verb describing lemons!
 ```
 That's it, you should be able to get started with the basics
 ## Errors
