@@ -1,28 +1,38 @@
-from decouple import config
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from fastapi import Request
+
 from fastapi.templating import Jinja2Templates
 
 
-class Server:
+class _Server(BaseSettings):
     """Server class to handle the server constant variables."""
 
-    # the 3 constants below are used in authentication file (auth.py)
-    SECRET_KEY = config("SECRET_KEY", cast=str)
-    ALGORITHM = "HS256"
-    ACCESS_EXPIRE_IN = 3600  # value in seconds
-    REFRESH_EXPIRE_IN = ACCESS_EXPIRE_IN * 6
+    model_config = SettingsConfigDict(
+        validate_default=False,
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+    # the 4 constants below are used in authentication file (auth.py)
+    SECRET_KEY: str = "SECRET_KEY"
+    ALGORITHM: str = "HS256"
+    ACCESS_EXPIRE_IN: int = 3600  # value in seconds
+    REFRESH_EXPIRE_IN: int = ACCESS_EXPIRE_IN * 6
 
-    DEBUG = config("DEBUG", cast=bool, default=False)
+    DEBUG: bool = "DEBUG"
 
-    TEMPLATES = Jinja2Templates(directory="lemonapi/templates")
+    TEMPLATES: Jinja2Templates = Jinja2Templates(directory="lemonapi/templates")
 
-    SCOPES = ["users:read"]
+    SCOPES: list[str] = ["users:read"]
     # key length is used for shortened urls.
     # value of default 5 geneerates shortened urls like:
     # http://localhost:5000/UEFIS
-    KEY_LENGTH = 5
-    SECRET_KEY_LENGTH = 10
+    KEY_LENGTH: int = 5
+    SECRET_KEY_LENGTH: int = 10
+
+
+Server = _Server()
 
 
 class FormsManager:
