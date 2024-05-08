@@ -15,12 +15,18 @@ class _Server(BaseSettings):
         extra="ignore",
     )
     # the 4 constants below are used in authentication file (auth.py)
-    SECRET_KEY: str = "SECRET_KEY"
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_EXPIRE_IN: int = 3600  # value in seconds
     REFRESH_EXPIRE_IN: int = ACCESS_EXPIRE_IN * 6
 
-    DEBUG: bool = "DEBUG"
+    DEBUG: bool
+
+    # Database connection
+    DB_NAME: str
+    DB_PORT: str
+    DB_PASSWORD: str
+    DB_USER: str
 
     TEMPLATES: Jinja2Templates = Jinja2Templates(directory="lemonapi/templates")
 
