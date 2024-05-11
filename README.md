@@ -78,3 +78,11 @@ That's it, you should be able to get started with the basics
 If you find a bug or error, open an issue and give a required information such as function/line where it happens in at, what is wrong and possibly other information (optional)
 
 Want to know more about the API? Open an issue with label **question** or DM me in discord or something idk.
+
+## Tests
+
+If you are a developer and want to test your changes run 
+```bash
+$ poetry shell # get into the poetry env
+$ python -m pytest tests/
+```
