@@ -72,9 +72,9 @@ async def login_for_refresh_token(
             con=con,
             user_id=user_id[0],
         )
-    logger.info(
-        f"Successful login: User ID - {user_id}, Client IP - {request.client.host}"
-    )
+    log_user = user_id["user_id"]
+    ip = request.client.host
+    logger.info(f"Successful login from: user_id={log_user} | client_ip={ip}")
     redirect = RedirectResponse(url="/showtoken", status_code=303)
     redirect.set_cookie(
         key="token",
@@ -84,7 +84,20 @@ async def login_for_refresh_token(
         path="/showtoken",
     )
     headers = request.headers
-    if "referer" in headers and "/login" in request.headers["referer"]:
+
+    # If the request comes from docs, we want to give the access token upon
+    # request so that we can test the API endpoint in the docs. If the
+    # access_token would not be provided like this you would be unable to
+    # test protected endpoints in the docs.
+    if "referer" in headers and "/docs" in request.headers["referer"]:
+        token = await authenticate(
+            request, RefreshToken(refresh_token=refresh_token), pool=pool
+        )
+        return {
+            "access_token": token["access_token"],
+            "token_type": token["token_type"],
+        }
+    elif "referer" in headers and "/login" in request.headers["referer"]:
         return redirect
     else:
         return {"refresh": refresh_token, "token_type": "bearer"}
