@@ -1,6 +1,6 @@
 FROM python:3.11.5-slim-bookworm
 WORKDIR /lemonapi
-COPY pyproject.toml
+COPY pyproject.toml pyproject.toml
 RUN poetry install
 EXPOSE 5001
 COPY . .
