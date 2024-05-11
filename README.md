@@ -7,6 +7,8 @@ You may connect to your own postgresql host by modifying `./lemonapi/utils/confi
 
 ## Credentials
 The default admin credentials are `admin` with password `weakadmin`, change those!
+> [!IMPORTANT]
+> Make sure to copy over the contents of `.env-template` to `.env` with the appropriate credentials.
 
 ### Docker usage
 Project has `Dockerfile` and `docker-compose.yml` pre made.
